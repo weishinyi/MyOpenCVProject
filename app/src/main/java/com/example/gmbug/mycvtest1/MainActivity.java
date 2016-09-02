@@ -14,20 +14,24 @@ import org.opencv.core.Mat;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
-    private String TAG ="OpenCV Test";
+    private String TAG ="OpenCV Test!";
     private CameraBridgeViewBase mOpenCvCameraView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG,"onCreate!");
+        Log.i(TAG, "onCreate!");
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         setContentView(R.layout.activity_main);
 
         mOpenCvCameraView = (CameraBridgeViewBase)findViewById(R.id.cameraView);
-        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
-        mOpenCvCameraView.setCvCameraViewListener(MainActivity.this);
+        if(mOpenCvCameraView!=null)
+        {
+            mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
+            mOpenCvCameraView.setCvCameraViewListener(MainActivity.this);
+        }
+
     }
 
     private BaseLoaderCallback myLoaderCallback = new BaseLoaderCallback(this) {
