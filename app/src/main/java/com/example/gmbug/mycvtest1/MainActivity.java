@@ -13,13 +13,12 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -72,8 +71,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         setContentView(R.layout.activity_main);
 
-
-
         mOpenCvCameraView = (CameraBridgeViewBase)findViewById(R.id.cameraView);
         if(mOpenCvCameraView!=null)
         {
@@ -113,6 +110,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //set the size of detection face
         setAbsoluteObjectSize(height);
+
+        //get timeline image resources
+        getTimelineImage();
     }
 
     @Override
@@ -132,6 +132,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         rgbaImg = inputFrame.rgba();
         grayImg = inputFrame.gray();
 
+
+        //region test add image on frame success!
+        /*
+        Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.likeicon);
+        Mat matimg =new Mat();
+        Utils.bitmapToMat(bmapimg,matimg);
+        Rect roi = new Rect(10,10,matimg.cols(),matimg.rows());
+        //p.s. copyTo or addWeighted choose one to use!
+        //matimg.copyTo(rgbaImg.submat(roi));
+        Core.addWeighted(rgbaImg.submat(roi), 0.8,matimg,0.2,1,rgbaImg.submat(roi));
+        */
+        //endregion
 
         //region test putText in frame
         /*
@@ -168,7 +180,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 //set roi range & add image on frame
                 //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
-                getTimelineImage();
+
                 int x = (int)oneobject.tl().x;
                 int y = (int)oneobject.tl().y;;
                 int width = (int)timeline.size().width;
@@ -232,11 +244,16 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         absoluteObjectSize = (int)(height *0.2);
     }
 
-    /** get timeline image */
+    /** get timeline image resources */
     private void getTimelineImage()
     {
         try{
-            timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString());
+            //timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString()); //not good ,it maybe make error!
+
+            timeline = new Mat(); //initialize timeline
+            Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.timeline2);
+            Utils.bitmapToMat(bmapimg,timeline);
+
         }catch(Exception e){
             Log.e(TAG,e.getMessage());
         }
