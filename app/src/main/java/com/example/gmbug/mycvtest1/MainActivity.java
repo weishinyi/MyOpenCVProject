@@ -16,9 +16,11 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -133,6 +135,17 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         grayImg = inputFrame.gray();
 
 
+        //region test resize the image and add on frame -> success!
+        /*
+        Mat resizeImg = new Mat();
+        Size sz = new Size(700,100);
+        Imgproc.resize(timeline,resizeImg,sz);
+
+        Rect roi = new Rect(10,10,resizeImg.cols(),resizeImg.rows());
+        Core.addWeighted(rgbaImg.submat(roi), 0.8,resizeImg,0.5,1,rgbaImg.submat(roi));
+        */
+        //endregion
+
         //region test add image on frame success!
         /*
         Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.likeicon);
@@ -156,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //endregion
 
         //region using classifier to detect object
-        /*
+
         MatOfRect objects = new MatOfRect();
         try{
             if(cascadeClassifier != null)
@@ -165,11 +178,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             }
         }catch(Exception e){
             Log.i(TAG,"using classifier to detect face ERROR!");
-        }*/
+        }
         //endregion
 
         //region If there are any objects found, draw a rectangle around it and add image on it
-        /*
         try{
 
             Rect[] objectsArray = objects.toArray();
@@ -181,23 +193,31 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 //set roi range & add image on frame
                 //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
 
-                int x = (int)oneobject.tl().x;
-                int y = (int)oneobject.tl().y;;
-                int width = (int)timeline.size().width;
-                int height = (int)timeline.size().height;
-                double alpha = 0.5;
-                double beta = 1.0;
-                double gamma = 0;
+                //resize the timeline img to resizeImg
+                // p.s. you should write the code to select the size to resize ---
+                Mat resizeImg = new Mat();
+                Size sz = new Size(700,100);
+                Imgproc.resize(timeline,resizeImg,sz);
 
-                Rect ROI = new Rect(x,y,width,height);
-                Core.addWeighted(rgbaImg.submat(ROI), alpha, timeline, beta, gamma, rgbaImg.submat(ROI));
+                //set the coordinate to show timeline image
+                int x0 = (int)oneobject.tl().x;
+                int y0 = (int)oneobject.tl().y;
+                int width = resizeImg.cols();
+                int height = resizeImg.rows();
+                int x = x0 + (int)( (oneobject.br().x - oneobject.tl().x - width)/2 );
+                int y = y0 + (int)( (oneobject.br().y - oneobject.tl().y - height)/2 );
 
+                //set the para of addWeighted function
+                double alpha = 0.8;
+                double beta = 0.5;
+                double gamma = 1;
+
+                Rect roi = new Rect(x,y,width,height);
+                Core.addWeighted(rgbaImg.submat(roi), alpha, resizeImg, beta, gamma, rgbaImg.submat(roi));
             }
-
-
         }catch (Exception e){
             Log.i(TAG,"draw the rectangle on frame Error!");
-        }*/
+        }
         //endregion
 
         return rgbaImg;
