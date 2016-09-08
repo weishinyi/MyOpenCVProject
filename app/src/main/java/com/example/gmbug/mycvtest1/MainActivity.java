@@ -1,6 +1,8 @@
 package com.example.gmbug.mycvtest1;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,6 +13,7 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
@@ -19,11 +22,11 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.imgcodecs.Imgcodecs;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -36,7 +39,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     private Mat rgbaImg;
     private Mat grayImg;
-    private int absoluteFaceSize = 0;
+    private int absoluteObjectSize = 0;
+
+    private Mat timeline;
 
     //BaseLoaderCallback
     private BaseLoaderCallback myLoaderCallback = new BaseLoaderCallback(this) {
@@ -66,6 +71,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         setContentView(R.layout.activity_main);
+
+
 
         mOpenCvCameraView = (CameraBridgeViewBase)findViewById(R.id.cameraView);
         if(mOpenCvCameraView!=null)
@@ -105,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Log.i(TAG, "onCameraViewStarted!");
 
         //set the size of detection face
-        setAbsoluteFaceSize(height);
+        setAbsoluteObjectSize(height);
     }
 
     @Override
@@ -125,31 +132,61 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         rgbaImg = inputFrame.rgba();
         grayImg = inputFrame.gray();
 
-        MatOfRect faces = new MatOfRect();
 
-        //using classifier to detect face
+        //region test putText in frame
+        /*
+        Mat n = inputFrame.rgba().colRange(10,500).rowRange(10,300).setTo(new Scalar(0,0,0));
+        Imgproc.putText(n, " frame!!", new Point(50, 50), Core.FONT_HERSHEY_SIMPLEX, 1.0, new Scalar(255, 0, 255));
+        n.copyTo(rgbaImg.submat(10,300,10,500));
+        Rect roi = new Rect(10,10,n.cols(),n.rows());
+        Core.addWeighted(rgbaImg.submat(roi), 0.8,n,0.2,1,rgbaImg.submat(roi));
+        */
+        //endregion
+
+        //region using classifier to detect object
+        /*
+        MatOfRect objects = new MatOfRect();
         try{
             if(cascadeClassifier != null)
             {
-                cascadeClassifier.detectMultiScale(grayImg, faces,1.1,2,2, new Size(absoluteFaceSize,absoluteFaceSize),new Size());
+                cascadeClassifier.detectMultiScale(grayImg, objects,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
             }
         }catch(Exception e){
             Log.i(TAG,"using classifier to detect face ERROR!");
-        }
+        }*/
+        //endregion
 
-
-        //If there are any faces found, draw a rectangle around it
+        //region If there are any objects found, draw a rectangle around it and add image on it
+        /*
         try{
-            Rect[] facesArray = faces.toArray();
 
-            for (Rect oneface : facesArray) {
+            Rect[] objectsArray = objects.toArray();
+
+            for (Rect oneobject : objectsArray) {
                 //draw a rectangle on frame
-                Imgproc.rectangle(rgbaImg, oneface.tl(), oneface.br(),RECT_COLOR,3);
+                Imgproc.rectangle(rgbaImg, oneobject.tl(), oneobject.br(),RECT_COLOR,3);
+
+                //set roi range & add image on frame
+                //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                getTimelineImage();
+                int x = (int)oneobject.tl().x;
+                int y = (int)oneobject.tl().y;;
+                int width = (int)timeline.size().width;
+                int height = (int)timeline.size().height;
+                double alpha = 0.5;
+                double beta = 1.0;
+                double gamma = 0;
+
+                Rect ROI = new Rect(x,y,width,height);
+                Core.addWeighted(rgbaImg.submat(ROI), alpha, timeline, beta, gamma, rgbaImg.submat(ROI));
+
             }
+
 
         }catch (Exception e){
             Log.i(TAG,"draw the rectangle on frame Error!");
-        }
+        }*/
+        //endregion
 
         return rgbaImg;
     }
@@ -159,9 +196,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     {
         try{
             // Copy the resource into a temp file so OpenCV can load it
-            InputStream is = getResources().openRawResource(R.raw.lbpcascade_frontalface);
+            InputStream is = getResources().openRawResource(R.raw.test_arm_cascade);
             File cascadeDir = getDir("cascade", Context.MODE_PRIVATE);
-            File mCascadeFile = new File(cascadeDir, "lbpcascade_frontalface.xml");
+            File mCascadeFile = new File(cascadeDir, "test_arm_cascade.xml");
             FileOutputStream os = new FileOutputStream(mCascadeFile);
 
             byte[] buffer = new byte[4096];
@@ -183,16 +220,28 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             }
 
         }catch (Exception e) {
-            Log.e(TAG,e.getMessage());
+            Log.e(TAG, e.getMessage());
         }
 
     }
 
     /** set the size of detection face */
-    private void setAbsoluteFaceSize(int height)
+    private void setAbsoluteObjectSize(int height)
     {
         // The faces will be a 20% of the height of the screen
-        absoluteFaceSize = (int)(height *0.2);
+        absoluteObjectSize = (int)(height *0.2);
+    }
+
+    /** get timeline image */
+    private void getTimelineImage()
+    {
+        try{
+            timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString());
+        }catch(Exception e){
+            Log.e(TAG,e.getMessage());
+        }
+
+
     }
 
 } //end class
