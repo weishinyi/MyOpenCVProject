@@ -136,7 +136,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
 
         //region test resize the image and add on frame -> success!
-        /*
+        /*...
         Mat resizeImg = new Mat();
         Size sz = new Size(700,100);
         Imgproc.resize(timeline,resizeImg,sz);
