@@ -33,6 +33,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     //---------------------- variables ----------------------------
     private static final Scalar RECT_COLOR = new Scalar(0, 255, 0, 255);
+    private static final Scalar RECT_COLOR_FINGER = new Scalar(255,0,255,0);
 
     private String TAG = "MyCvTest1";
 
@@ -62,7 +63,23 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 case LoaderCallbackInterface.SUCCESS:
                     Log.i(TAG, "OpenCV loaded successfully!");
 
-                    initializeCascadeClassifier(); //initialize CascadeClassifier_arm
+
+                    //initialize CascadeClassifier_arm
+                    try{
+                        cascadeClassifier_arm = generalizationInitializeCascadeClassifier(R.raw.test2_arm_cascade,"test2_arm_cascade.xml");
+                        Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_arm initialize success.");
+                    }catch(Exception e){
+                        Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_arm initialize fail.");
+                    }
+
+                    //initialize cascadeClassifier_finger
+                    try{
+                        cascadeClassifier_finger = generalizationInitializeCascadeClassifier(R.raw.test_finger_cascade,"test_finger_cascade.xml");
+                        Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_finger initialize success.");
+                    }catch(Exception e){
+                        Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_finger initialize fail.");
+                    }
+
                     mOpenCvCameraView.enableView();
 
                     screenCenter = new Point(mOpenCvCameraView.getWidth()/2,mOpenCvCameraView.getHeight()/2);
@@ -188,8 +205,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Imgproc.line(rgbaImg,p3,p4,RECT_COLOR,3);
         //endregion
 
-        Log.i(TAG, "start to detect arm and show timeline image!");
-
+        Log.i(TAG, "[onCameraFrame]: start to detect arm and show timeline image!");
+        //region start to detect arm and show timeline image
         //using classifier to detect arms
         MatOfRect arms = detectArms();
 
@@ -229,12 +246,38 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 Rect roi = new Rect(x,y,width,height);
                 Core.addWeighted(rgbaImg.submat(roi), alpha, resizeImg, beta, gamma, rgbaImg.submat(roi));
 
-                Log.i(TAG, "main function: draw a rectangle & show timeline success!");
+                Log.i(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline success!");
             }
 
         }catch(Exception e){
-            Log.e(TAG, "main function: draw a rectangle & show timeline ERROR!");
+            Log.e(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline ERROR!");
         }
+        //endregion
+
+        Log.i(TAG, "[onCameraFrame]: start to detect finger and draw a rectangle!");
+        //region start to detect finger and draw a rectangle!
+        //using classifier to detect fingers
+        MatOfRect fingers = detectFingers();
+
+        //choose one fit arm
+
+        //draw a rectangle around fitArm & show the timeline image on fitArm
+        try{
+            if(!fingers.empty())
+            {
+                for(Rect oneFinger : fingers.toArray())
+                {
+                    //draw a rectangle on frame
+                    Imgproc.rectangle(rgbaImg, oneFinger.tl(), oneFinger.br(),RECT_COLOR_FINGER,3);
+                }
+
+                Log.i(TAG, "[onCameraFrame]: draw a rectangle around finger success!");
+            }
+        }catch (Exception e){
+            Log.e(TAG, "[onCameraFrame]: draw a rectangle around finger ERROR!");
+        }
+
+        //endregion
 
         //region If there are any objects found, draw a rectangle around it and add image on it
         /**
@@ -278,7 +321,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
          //endregion
 
         frameCounter++; //frameCounter = frameCounter + 1;
-        Log.e(TAG, "main function: frameCounter="+frameCounter+".");
+        Log.e(TAG, "[onCameraFrame]: frameCounter="+frameCounter+".");
 
         return rgbaImg;
     }
@@ -287,6 +330,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 //---------------------- functions ----------------------------
 
     /** initialize Detect Arm Cascade Classifier */
+    //region
+    /**
     private void initializeCascadeClassifier()
     {
         try{
@@ -318,9 +363,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Log.e(TAG,"initializeCascadeClassifier function: Error msg "+e.getMessage());
         }
 
-    }
+    }*/
+    //endregion
 
-    /** Generalization Initialize Cascade Classifier  (還沒拿來用...)*/
+    /** Generalization Initialize Cascade Classifier */
     private CascadeClassifier generalizationInitializeCascadeClassifier(int xmlfileId, String xmlfileName)
     {
         CascadeClassifier cascadeClassifier = null;
@@ -344,10 +390,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             //Load the CascadeClassifier
             cascadeClassifier = new CascadeClassifier(mCascadeFile.getAbsolutePath());
             if(cascadeClassifier.empty()){
-                Log.i(TAG,"Failed to load cascade classifier");
+                Log.i(TAG,"[Initialize Cascade Classifier]: Failed to load cascade classifier");
                 cascadeClassifier = null;
             }else{
-                Log.i(TAG,"Loaded cascade classifier from " + mCascadeFile.getAbsolutePath());
+                Log.i(TAG,"[Initialize Cascade Classifier]: Loaded cascade classifier from " + mCascadeFile.getAbsolutePath());
             }
 
         }catch (Exception e) {
@@ -375,9 +421,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 cascadeClassifier_arm.detectMultiScale(grayImg,arms,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
             }
 
-            Log.i(TAG, "detectArms Function: using classifier to detect arms success!");
+            Log.i(TAG, "[detectArms]: using classifier to detect arms success!");
         }catch(Exception e){
-            Log.e(TAG, "detectArms Function: using classifier to detect arms ERROR!");
+            Log.e(TAG, "[detectArms]: using classifier to detect arms ERROR!");
         }
 
         return arms;
@@ -406,12 +452,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         MatOfRect fingers = new MatOfRect();
 
         try{
-            if(cascadeClassifier_arm != null)
+            if(cascadeClassifier_finger != null)
             {
-                cascadeClassifier_arm.detectMultiScale(grayImg,fingers,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
+                cascadeClassifier_finger.detectMultiScale(grayImg,fingers,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
             }
         }catch(Exception e){
-            Log.i(TAG, "using classifier to detect face ERROR!");
+            Log.i(TAG, "[detectFingers]: using classifier to detect face ERROR!");
         }
 
         return fingers;
@@ -426,9 +472,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         try{
             armsArray = arms.toArray();
 
-            Log.i(TAG,"chooseFitArm Function: Get Rect[] armsArray success!!");
+            Log.i(TAG,"[chooseFitArm]: Get Rect[] armsArray success!!");
         }catch(Exception e){
-            Log.e(TAG,"chooseFitArm Function: Get Rect[] armsArray ERROR!");
+            Log.e(TAG,"[chooseFitArm]: Get Rect[] armsArray ERROR!");
         }
 
         //choose fitArm from armsArray
@@ -444,9 +490,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 }
             }
 
-            Log.i(TAG,"chooseFitArm Function: Choose fitArm from armsArray success!");
+            Log.i(TAG,"[chooseFitArm]: Choose fitArm from armsArray success!");
         }catch(Exception e){
-            Log.e(TAG,"chooseFitArm Function: Choose fitArm from armsArray ERROR!");
+            Log.e(TAG,"[chooseFitArm]: Choose fitArm from armsArray ERROR!");
         }
 
         return fitArm;
@@ -464,9 +510,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             center1 = new Point( r1.tl().x+(r1.width/2),  r1.tl().y+(r1.height/2));
             center2 = new Point( r2.tl().x+(r2.width/2),  r2.tl().y+(r2.height/2));
 
-            Log.i(TAG,"compareTwoRect Function: Get Point center1,center2 success!");
+            Log.i(TAG,"[compareTwoRect]: Get Point center1,center2 success!");
         }catch(Exception e){
-            Log.e(TAG,"compareTwoRect Function: Get Point center1,center2 ERROR!");
+            Log.e(TAG,"[compareTwoRect]: Get Point center1,center2 ERROR!");
         }
 
         //compute the distance between center1/center2 and screenCenter
@@ -478,9 +524,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             distance1 = Math.sqrt(Math.pow(deltaX1, 2) + Math.pow(deltaY1, 2));
             distance2 = Math.sqrt(Math.pow(deltaX2,2)+Math.pow(deltaY2,2));
 
-            Log.i(TAG,"compareTwoRect Function: Compute the distance success!");
+            Log.i(TAG,"[compareTwoRect]: Compute the distance success!");
         }catch(Exception e) {
-            Log.e(TAG, "compareTwoRect Function: Compute the distance ERROR!");
+            Log.e(TAG, "[compareTwoRect]: Compute the distance ERROR!");
         }
 
         //choose return
