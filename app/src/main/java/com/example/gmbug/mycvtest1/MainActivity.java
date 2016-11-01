@@ -63,7 +63,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 case LoaderCallbackInterface.SUCCESS:
                     Log.i(TAG, "OpenCV loaded successfully!");
 
-
                     //initialize CascadeClassifier_arm
                     try{
                         cascadeClassifier_arm = generalizationInitializeCascadeClassifier(R.raw.test2_arm_cascade,"test2_arm_cascade.xml");
@@ -74,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     //initialize cascadeClassifier_finger
                     try{
-                        cascadeClassifier_finger = generalizationInitializeCascadeClassifier(R.raw.test_finger_cascade,"test_finger_cascade.xml");
+                        cascadeClassifier_finger = generalizationInitializeCascadeClassifier(R.raw.test4_finger_cascade,"test4_finger_cascade.xml");
                         Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_finger initialize success.");
                     }catch(Exception e){
                         Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_finger initialize fail.");
@@ -218,7 +217,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
             if(fitArm!=null) {
                 //draw a rectangle
-                Imgproc.rectangle(rgbaImg, fitArm.tl(), fitArm.br(), RECT_COLOR, 3);
+                //Imgproc.rectangle(rgbaImg, fitArm.tl(), fitArm.br(), RECT_COLOR, 3);
 
                 //show timeline image
                 //set roi range & add image on frame
@@ -260,16 +259,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         MatOfRect fingers = detectFingers();
 
         //choose one fit arm
+        Rect fitFinger = chooseFitArm(fingers);
 
         //draw a rectangle around fitArm & show the timeline image on fitArm
         try{
-            if(!fingers.empty())
+            if(fitFinger!=null)
             {
-                for(Rect oneFinger : fingers.toArray())
-                {
-                    //draw a rectangle on frame
-                    Imgproc.rectangle(rgbaImg, oneFinger.tl(), oneFinger.br(),RECT_COLOR_FINGER,3);
-                }
+                //draw a rectangle on frame
+                Imgproc.rectangle(rgbaImg, fitFinger.tl(), fitFinger.br(),RECT_COLOR_FINGER,3);
 
                 Log.i(TAG, "[onCameraFrame]: draw a rectangle around finger success!");
             }
@@ -429,23 +426,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return arms;
     }
 
-    /** get timeline image resources */
-    private void getTimelineImage()
-    {
-        try{
-            //timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString()); //not good ,it maybe make error!
-
-            timeline = new Mat(); //initialize timeline
-            Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.timeline2);
-            Utils.bitmapToMat(bmapimg,timeline);
-
-        }catch(Exception e){
-            Log.e(TAG, e.getMessage());
-        }
-
-
-    }
-
     /** using classifier detect finger then return MatOfRect */
     private MatOfRect detectFingers()
     {
@@ -463,7 +443,24 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return fingers;
     }
 
-    private Rect chooseFitArm(MatOfRect arms)
+    /** get timeline image resources */
+    private void getTimelineImage()
+    {
+        try{
+            //timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString()); //not good ,it maybe make error!
+
+            timeline = new Mat(); //initialize timeline
+            Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.timeline2);
+            Utils.bitmapToMat(bmapimg,timeline);
+
+        }catch(Exception e){
+            Log.e(TAG, e.getMessage());
+        }
+
+
+    }
+
+       private Rect chooseFitArm(MatOfRect arms)
     {
         Rect fitArm = null;
         Rect[] armsArray = null;
@@ -490,13 +487,48 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 }
             }
 
-            Log.i(TAG,"[chooseFitArm]: Choose fitArm from armsArray success!");
+            Log.i(TAG, "[chooseFitArm]: Choose fitArm from armsArray success!");
         }catch(Exception e){
-            Log.e(TAG,"[chooseFitArm]: Choose fitArm from armsArray ERROR!");
+            Log.e(TAG, "[chooseFitArm]: Choose fitArm from armsArray ERROR!");
         }
 
         return fitArm;
     }
+
+   private Rect chooseFitFinger(MatOfRect fingers)
+   {
+       Rect fitFinger = null;
+       Rect[] fingersArray = null;
+
+       //get Rect[] fingersArray
+       try{
+           fingersArray = fingers.toArray();
+
+           Log.i(TAG,"[chooseFitFinger]: Get Rect[] fingersArray success!!");
+       }catch(Exception e){
+           Log.e(TAG,"[chooseFitFinger]: Get Rect[] fingersArray ERROR!");
+       }
+
+       //choose fitArm from armsArray
+       try{
+           if(fingersArray!=null){
+               for(Rect oneArm : fingersArray)
+               {
+                   if(fitFinger==null){
+                       fitFinger = oneArm;
+                   }else {
+                       fitFinger = compareTwoRect(fitFinger,oneArm);
+                   }
+               }
+           }
+
+           Log.i(TAG, "[chooseFitFinger]: Choose fitFinger from fingersArray success!");
+       }catch(Exception e){
+           Log.e(TAG, "[chooseFitFinger]: Choose fitFinger from fingersArray ERROR!");
+       }
+
+       return fitFinger;
+   }
 
     private Rect compareTwoRect(Rect r1,Rect r2)
     {
@@ -536,5 +568,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             return r1;
         }
     }
+
+
 
 } //end class
