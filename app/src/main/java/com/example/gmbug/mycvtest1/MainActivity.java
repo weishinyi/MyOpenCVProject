@@ -210,9 +210,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         MatOfRect arms = detectArms();
 
         //choose one fit arm
-        Rect fitArm = chooseFitArm(arms);
+        Rect fitArm = chooseFitObject(arms);
 
         //draw a rectangle around fitArm & show the timeline image on fitArm
+        Rect timelineRoi = null;
         try{
 
             if(fitArm!=null) {
@@ -242,8 +243,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 double beta = 0.5;
                 double gamma = 1;
 
-                Rect roi = new Rect(x,y,width,height);
-                Core.addWeighted(rgbaImg.submat(roi), alpha, resizeImg, beta, gamma, rgbaImg.submat(roi));
+
+                timelineRoi = new Rect(x,y,width,height); //timeline img roi to show displayimg
+                Core.addWeighted(rgbaImg.submat(timelineRoi), alpha, resizeImg, beta, gamma, rgbaImg.submat(timelineRoi));
 
                 Log.i(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline success!");
             }
@@ -259,7 +261,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         MatOfRect fingers = detectFingers();
 
         //choose one fit arm
-        Rect fitFinger = chooseFitArm(fingers);
+        Rect fitFinger = chooseFitObject(fingers);
 
         //draw a rectangle around fitArm & show the timeline image on fitArm
         try{
@@ -316,6 +318,41 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
          */
          //endregion
+
+
+        Log.i(TAG,"[onCameraFrame]: if finger touch timeline then show the displayImage." );
+        //region if finger touch timeline then show the displayImage.
+        try{
+            if(fitArm!=null && fitFinger!=null && timelineRoi!=null)
+            {
+                Point fingerPoint = fitFinger.tl();
+                if(timelineRoi.contains(fingerPoint))
+                {
+                    Mat displayimg = getDisplayImage(R.drawable.testinfo1);
+
+                    if(!displayimg.empty()){
+
+                        //set the coordinate to show displayimg
+                        int x = (int)fitFinger.tl().x;
+                        int y = (int)(fitFinger.tl().y/2);
+
+                        //set the para of addWeighted function
+                        double alpha = 0.8;
+                        double beta = 0.5;
+                        double gamma = 1;
+
+                        //show displayimg
+                        Rect displayimg_roi = new Rect(x,y,displayimg.width(),displayimg.height());
+                        Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayimg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                        Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                    }
+                }
+            }
+        }catch (Exception e){
+            Log.e(TAG,"[onCameraFrame]: show the displayImage ERROR!");
+        }
+        //endregion
 
         frameCounter++; //frameCounter = frameCounter + 1;
         Log.e(TAG, "[onCameraFrame]: frameCounter="+frameCounter+".");
@@ -443,92 +480,40 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return fingers;
     }
 
-    /** get timeline image resources */
-    private void getTimelineImage()
+    private Rect chooseFitObject(MatOfRect objects)
     {
+        Rect fitObject = null;
+        Rect[] objectsArray = null;
+
+        //get Rect[] objectsArray
         try{
-            //timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString()); //not good ,it maybe make error!
+            objectsArray = objects.toArray();
 
-            timeline = new Mat(); //initialize timeline
-            Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.timeline2);
-            Utils.bitmapToMat(bmapimg,timeline);
-
+            Log.i(TAG,"[chooseFitObject]: Get Rect[] objectsArray success!!");
         }catch(Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(TAG,"[chooseFitObject]: Get Rect[] objectsArray ERROR!");
         }
 
-
-    }
-
-       private Rect chooseFitArm(MatOfRect arms)
-    {
-        Rect fitArm = null;
-        Rect[] armsArray = null;
-
-        //get Rect[] armsArray
+        //choose fitObject from objectsArray
         try{
-            armsArray = arms.toArray();
-
-            Log.i(TAG,"[chooseFitArm]: Get Rect[] armsArray success!!");
-        }catch(Exception e){
-            Log.e(TAG,"[chooseFitArm]: Get Rect[] armsArray ERROR!");
-        }
-
-        //choose fitArm from armsArray
-        try{
-            if(armsArray!=null){
-                for(Rect oneArm : armsArray)
+            if(objectsArray!=null){
+                for(Rect oneArm : objectsArray)
                 {
-                    if(fitArm==null){
-                        fitArm = oneArm;
+                    if(fitObject==null){
+                        fitObject = oneArm;
                     }else {
-                        fitArm = compareTwoRect(fitArm,oneArm);
+                        fitObject = compareTwoRect(fitObject,oneArm);
                     }
                 }
             }
 
-            Log.i(TAG, "[chooseFitArm]: Choose fitArm from armsArray success!");
+            Log.i(TAG, "[chooseFitObject]: Choose fitObject from objectsArray success!");
         }catch(Exception e){
-            Log.e(TAG, "[chooseFitArm]: Choose fitArm from armsArray ERROR!");
+            Log.e(TAG, "[chooseFitObject]: Choose fitObject from objectsArray ERROR!");
         }
 
-        return fitArm;
+        return fitObject;
     }
-
-   private Rect chooseFitFinger(MatOfRect fingers)
-   {
-       Rect fitFinger = null;
-       Rect[] fingersArray = null;
-
-       //get Rect[] fingersArray
-       try{
-           fingersArray = fingers.toArray();
-
-           Log.i(TAG,"[chooseFitFinger]: Get Rect[] fingersArray success!!");
-       }catch(Exception e){
-           Log.e(TAG,"[chooseFitFinger]: Get Rect[] fingersArray ERROR!");
-       }
-
-       //choose fitArm from armsArray
-       try{
-           if(fingersArray!=null){
-               for(Rect oneArm : fingersArray)
-               {
-                   if(fitFinger==null){
-                       fitFinger = oneArm;
-                   }else {
-                       fitFinger = compareTwoRect(fitFinger,oneArm);
-                   }
-               }
-           }
-
-           Log.i(TAG, "[chooseFitFinger]: Choose fitFinger from fingersArray success!");
-       }catch(Exception e){
-           Log.e(TAG, "[chooseFitFinger]: Choose fitFinger from fingersArray ERROR!");
-       }
-
-       return fitFinger;
-   }
 
     private Rect compareTwoRect(Rect r1,Rect r2)
     {
@@ -569,6 +554,52 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
     }
 
+    /** get timeline image resources */
+    private void getTimelineImage()
+    {
+        try{
+            //timeline = Imgcodecs.imread(getResources().getDrawable(R.drawable.timeline).toString()); //not good ,it maybe make error!
 
+            timeline = new Mat(); //initialize timeline
+            Bitmap bmapimg = BitmapFactory.decodeResource(getResources(), R.drawable.timeline2);
+            Utils.bitmapToMat(bmapimg, timeline);
+
+        }catch(Exception e){
+            Log.e(TAG, "[getTimelineImage]: "+e.getMessage());
+        }
+
+    }
+
+    /** get the image that you want to show on the screen. */
+    private Mat getDisplayImage(int drawableId)
+    {
+        Mat displayImage = new Mat();
+        Mat resizeDisplayImage = new Mat();
+        Size size = new Size(300,200);
+
+        //get displayImage
+        try{
+            Bitmap bmp = BitmapFactory.decodeResource(getResources(), drawableId);
+            Utils.bitmapToMat(bmp,displayImage);
+
+            Log.i(TAG, "[getDisplayImage]: get display image success!");
+        }catch(Exception e){
+            Log.e(TAG, "[getDisplayImage]: get displayImage ERROR! "+e.getMessage());
+        }
+
+
+        //resize the displayImage
+        try{
+            if(!displayImage.empty())
+            {
+                Imgproc.resize(displayImage,resizeDisplayImage,size);
+                Log.i(TAG, "[getDisplayImage]: resize success!");
+            }
+        }catch (Exception e){
+            Log.e(TAG, "[getDisplayImage]: resize ERROR! "+e.getMessage());
+        }
+
+        return resizeDisplayImage;
+    }
 
 } //end class
