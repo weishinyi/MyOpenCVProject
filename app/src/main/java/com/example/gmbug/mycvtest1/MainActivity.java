@@ -46,8 +46,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int absoluteObjectSize = 0;
 
     private boolean showTimelineFlag = false;
-    private Rect currentArm;
+    private int showTimelineStartFrame = -1;
     private Mat timeline;
+
+    private Rect fitArm = null;
+    private Rect timelineRoi = null;
+    private Rect[] datePoints = null;
 
     private Point screenCenter;
     private int frameCounter;
@@ -208,6 +212,121 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         Log.i(TAG, "[onCameraFrame]: start to detect arm and show timeline image!");
         //region start to detect arm and show timeline image
+
+        //region 改過的偵測手臂顯示timeline流程
+        if((showTimelineFlag==true && showTimelineStartFrame!=-1) || (showTimelineFlag==true && showTimelineStartFrame+5>frameCounter ) )
+        {
+            //------ show timeline on same coordinate ------
+            try {
+
+                if (fitArm != null) {
+                    //draw a rectangle
+                    //Imgproc.rectangle(rgbaImg, fitArm.tl(), fitArm.br(), RECT_COLOR, 3);
+
+                    //show timeline image
+                    //set roi range & add image on frame
+                    //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+
+                    //set the coordinate to show timeline image
+                    int x0 = (int) fitArm.tl().x;
+                    int y0 = (int) fitArm.tl().y;
+                    int width = timeline.cols();
+                    int height = timeline.rows();
+                    int x = x0 + (int) ((fitArm.br().x - fitArm.tl().x - width) / 2);
+                    int y = y0 + (int) ((fitArm.br().y - fitArm.tl().y - height) / 2);
+
+                    //set the para of addWeighted function
+                    double alpha = 0.8;
+                    double beta = 0.5;
+                    double gamma = 1;
+
+                    timelineRoi = new Rect(x, y, width, height);
+                    Core.addWeighted(rgbaImg.submat(timelineRoi), alpha, timeline, beta, gamma, rgbaImg.submat(timelineRoi));
+
+                    //get DatePoints on timeline
+                    //600,12   320,20   135,15  30,20
+                    int[] datePointX = {600,320,135,30};
+                    int[] datePointY = {12,20,15,20};
+                    datePoints = new Rect[4];
+                    for(int i=0; i<4; i++)
+                    {
+                        datePoints[i]= new Rect(x+datePointX[i], y+datePointY[i],100,100);
+                    }
+
+
+                    Log.i(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline success!");
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline ERROR!");
+            }//end try-catch
+
+            if(frameCounter+1 > showTimelineStartFrame+5)
+            {
+                showTimelineFlag = false;
+                showTimelineStartFrame =-1;
+            }
+
+
+        }else{
+            //------ detect arm and show timeline ------
+            //using classifier to detect arms
+            MatOfRect arms = detectArms();
+
+            //choose one fit arm
+            fitArm = chooseFitObject(arms);
+
+            //draw a rectangle around fitArm & show the timeline image on fitArm
+            try {
+
+                if (fitArm != null) {
+                    //draw a rectangle
+                    //Imgproc.rectangle(rgbaImg, fitArm.tl(), fitArm.br(), RECT_COLOR, 3);
+
+                    //show timeline image
+                    //set roi range & add image on frame
+                    //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+
+                    //set the coordinate to show timeline image
+                    int x0 = (int) fitArm.tl().x;
+                    int y0 = (int) fitArm.tl().y;
+                    int width = timeline.cols();
+                    int height = timeline.rows();
+                    int x = x0 + (int) ((fitArm.br().x - fitArm.tl().x - width) / 2);
+                    int y = y0 + (int) ((fitArm.br().y - fitArm.tl().y - height) / 2);
+
+                    //set the para of addWeighted function
+                    double alpha = 0.8;
+                    double beta = 0.5;
+                    double gamma = 1;
+
+                    timelineRoi = new Rect(x, y, width, height);
+                    Core.addWeighted(rgbaImg.submat(timelineRoi), alpha, timeline, beta, gamma, rgbaImg.submat(timelineRoi));
+
+                    showTimelineFlag =true;
+                    showTimelineStartFrame = frameCounter;
+
+                    //get DatePoints on timeline
+                    //600,12   320,20   135,15  30,20
+                    int[] datePointX = {600,320,135,30};
+                    int[] datePointY = {12,20,15,20};
+                    datePoints = new Rect[4];
+                    for(int i=0; i<4; i++)
+                    {
+                        datePoints[i]= new Rect(x+datePointX[i], y+datePointY[i],100,100);
+                    }
+
+                    Log.i(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline success!");
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline ERROR!");
+            }//end try-catch
+        }
+        //endregion
+
+        //region 原本的偵測手臂顯示timeline流程
+        /*
         //using classifier to detect arms
         MatOfRect arms = detectArms();
 
@@ -259,7 +378,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         } catch (Exception e) {
             Log.e(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline ERROR!");
-        }
+        }//end try-catch
+        */
+        //endregion
+
         //endregion
 
         Log.i(TAG, "[onCameraFrame]: start to detect finger and draw a rectangle!");
@@ -345,7 +467,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 switch (flag)
                 {
                     case 0:
-                        displayimg =getDisplayImage(R.drawable.funghi1,100,100);
+                        displayimg =getDisplayImage(R.drawable.funghi1,200,200);
                         if(!displayimg.empty())
                         {
                             //set the coordinate to show displayimg
@@ -366,7 +488,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                         }
                         break;
                     case 1:
-                        displayimg =getDisplayImage(R.drawable.funghi2,100,100);
+                        displayimg =getDisplayImage(R.drawable.funghi2,200,200);
                         if(!displayimg.empty())
                         {
                             //set the coordinate to show displayimg
@@ -387,7 +509,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                         }
                         break;
                     case 2:
-                        displayimg =getDisplayImage(R.drawable.funghi3,100,100);
+                        displayimg =getDisplayImage(R.drawable.funghi3,200,200);
                         if(!displayimg.empty())
                         {
                             //set the coordinate to show displayimg
@@ -408,7 +530,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                         }
                         break;
                     case 3:
-                        displayimg =getDisplayImage(R.drawable.funghi4,100,100);
+                        displayimg =getDisplayImage(R.drawable.funghi4,200,200);
                         if(!displayimg.empty())
                         {
                             //set the coordinate to show displayimg
