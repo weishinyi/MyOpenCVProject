@@ -45,6 +45,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private Mat grayImg;
     private int absoluteObjectSize = 0;
 
+    private boolean showTimelineFlag = false;
     private Rect currentArm;
     private Mat timeline;
 
@@ -73,7 +74,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     //initialize cascadeClassifier_finger
                     try{
-                        cascadeClassifier_finger = generalizationInitializeCascadeClassifier(R.raw.test4_finger_cascade,"test4_finger_cascade.xml");
+                        cascadeClassifier_finger = generalizationInitializeCascadeClassifier(R.raw.test5_finger_cascade,"test5_finger_cascade.xml");
                         Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_finger initialize success.");
                     }catch(Exception e){
                         Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_finger initialize fail.");
@@ -139,7 +140,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         setAbsoluteObjectSize(height);
 
         //get timeline image resources
-        getTimelineImage();
+        timeline = getDisplayImage(R.drawable.timeline2,700,100);
     }
 
     @Override
@@ -204,6 +205,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Imgproc.line(rgbaImg,p3,p4,RECT_COLOR,3);
         //endregion
 
+
         Log.i(TAG, "[onCameraFrame]: start to detect arm and show timeline image!");
         //region start to detect arm and show timeline image
         //using classifier to detect arms
@@ -214,9 +216,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //draw a rectangle around fitArm & show the timeline image on fitArm
         Rect timelineRoi = null;
-        try{
+        Rect[] datePoints = null;
+        try {
 
-            if(fitArm!=null) {
+            if (fitArm != null) {
                 //draw a rectangle
                 //Imgproc.rectangle(rgbaImg, fitArm.tl(), fitArm.br(), RECT_COLOR, 3);
 
@@ -224,133 +227,238 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 //set roi range & add image on frame
                 //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
 
-                //resize the timeline img to resizeImg
-                // p.s. you should write the code to select the size to resize ---
-                Mat resizeImg = new Mat();
-                Size sz = new Size(700,100);
-                Imgproc.resize(timeline,resizeImg,sz);
-
                 //set the coordinate to show timeline image
-                int x0 = (int)fitArm.tl().x;
-                int y0 = (int)fitArm.tl().y;
-                int width = resizeImg.cols();
-                int height = resizeImg.rows();
-                int x = x0 + (int)( (fitArm.br().x - fitArm.tl().x - width)/2 );
-                int y = y0 + (int)( (fitArm.br().y - fitArm.tl().y - height)/2 );
+                int x0 = (int) fitArm.tl().x;
+                int y0 = (int) fitArm.tl().y;
+                int width = timeline.cols();
+                int height = timeline.rows();
+                int x = x0 + (int) ((fitArm.br().x - fitArm.tl().x - width) / 2);
+                int y = y0 + (int) ((fitArm.br().y - fitArm.tl().y - height) / 2);
 
                 //set the para of addWeighted function
                 double alpha = 0.8;
                 double beta = 0.5;
                 double gamma = 1;
 
+                timelineRoi = new Rect(x, y, width, height);
+                Core.addWeighted(rgbaImg.submat(timelineRoi), alpha, timeline, beta, gamma, rgbaImg.submat(timelineRoi));
 
-                timelineRoi = new Rect(x,y,width,height); //timeline img roi to show displayimg
-                Core.addWeighted(rgbaImg.submat(timelineRoi), alpha, resizeImg, beta, gamma, rgbaImg.submat(timelineRoi));
+                //get DatePoints on timeline
+                //600,12   320,20   135,15  30,20
+                int[] datePointX = {600,320,135,30};
+                int[] datePointY = {12,20,15,20};
+                datePoints = new Rect[4];
+                for(int i=0; i<4; i++)
+                {
+                    datePoints[i]= new Rect(x+datePointX[i], y+datePointY[i],100,100);
+                }
+
 
                 Log.i(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline success!");
             }
 
-        }catch(Exception e){
+        } catch (Exception e) {
             Log.e(TAG, "[onCameraFrame]: draw a rectangle around arm & show timeline ERROR!");
         }
         //endregion
 
         Log.i(TAG, "[onCameraFrame]: start to detect finger and draw a rectangle!");
         //region start to detect finger and draw a rectangle!
-        //using classifier to detect fingers
-        MatOfRect fingers = detectFingers();
+            //using classifier to detect fingers
+            MatOfRect fingers = detectFingers();
 
-        //choose one fit arm
-        Rect fitFinger = chooseFitObject(fingers);
+            //choose one fit arm
+            Rect fitFinger = chooseFitObject(fingers);
 
-        //draw a rectangle around fitArm & show the timeline image on fitArm
-        try{
-            if(fitFinger!=null)
-            {
-                //draw a rectangle on frame
-                Imgproc.rectangle(rgbaImg, fitFinger.tl(), fitFinger.br(),RECT_COLOR_FINGER,3);
+            //draw a rectangle around fitArm & show the timeline image on fitArm
+            try {
+                if (fitFinger != null) {
+                    //draw a rectangle on frame
+                    Imgproc.rectangle(rgbaImg, fitFinger.tl(), fitFinger.br(), RECT_COLOR_FINGER, 3);
 
-                Log.i(TAG, "[onCameraFrame]: draw a rectangle around finger success!");
+                    Log.i(TAG, "[onCameraFrame]: draw a rectangle around finger success!");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "[onCameraFrame]: draw a rectangle around finger ERROR!");
             }
-        }catch (Exception e){
-            Log.e(TAG, "[onCameraFrame]: draw a rectangle around finger ERROR!");
-        }
 
-        //endregion
+            //endregion
 
         //region If there are any objects found, draw a rectangle around it and add image on it
-        /**
-        try{
+            /**
+             try{
 
-            Rect[] objectsArray = objects.toArray();
+             Rect[] objectsArray = objects.toArray();
 
-            for (Rect oneobject : objectsArray) {
-                //draw a rectangle on frame
-                Imgproc.rectangle(rgbaImg, oneobject.tl(), oneobject.br(),RECT_COLOR,3);
+             for (Rect oneobject : objectsArray) {
+             //draw a rectangle on frame
+             Imgproc.rectangle(rgbaImg, oneobject.tl(), oneobject.br(),RECT_COLOR,3);
 
-                //set roi range & add image on frame
-                //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+             //set roi range & add image on frame
+             //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
 
-                //resize the timeline img to resizeImg
-                // p.s. you should write the code to select the size to resize ---
-                Mat resizeImg = new Mat();
-                Size sz = new Size(700,100);
-                Imgproc.resize(timeline,resizeImg,sz);
+             //resize the timeline img to resizeImg
+             // p.s. you should write the code to select the size to resize ---
+             Mat resizeImg = new Mat();
+             Size sz = new Size(700,100);
+             Imgproc.resize(timeline,resizeImg,sz);
 
-                //set the coordinate to show timeline image
-                int x0 = (int)oneobject.tl().x;
-                int y0 = (int)oneobject.tl().y;
-                int width = resizeImg.cols();
-                int height = resizeImg.rows();
-                int x = x0 + (int)( (oneobject.br().x - oneobject.tl().x - width)/2 );
-                int y = y0 + (int)( (oneobject.br().y - oneobject.tl().y - height)/2 );
+             //set the coordinate to show timeline image
+             int x0 = (int)oneobject.tl().x;
+             int y0 = (int)oneobject.tl().y;
+             int width = resizeImg.cols();
+             int height = resizeImg.rows();
+             int x = x0 + (int)( (oneobject.br().x - oneobject.tl().x - width)/2 );
+             int y = y0 + (int)( (oneobject.br().y - oneobject.tl().y - height)/2 );
 
-                //set the para of addWeighted function
-                double alpha = 0.8;
-                double beta = 0.5;
-                double gamma = 1;
+             //set the para of addWeighted function
+             double alpha = 0.8;
+             double beta = 0.5;
+             double gamma = 1;
 
-                Rect roi = new Rect(x,y,width,height);
-                Core.addWeighted(rgbaImg.submat(roi), alpha, resizeImg, beta, gamma, rgbaImg.submat(roi));
-            }
-        }catch (Exception e){
-            Log.i(TAG,"draw the rectangle on frame Error!");
-        }
-         */
-         //endregion
+             Rect roi = new Rect(x,y,width,height);
+             Core.addWeighted(rgbaImg.submat(roi), alpha, resizeImg, beta, gamma, rgbaImg.submat(roi));
+             }
+             }catch (Exception e){
+             Log.i(TAG,"draw the rectangle on frame Error!");
+             }
+             */
+            //endregion
 
-
-        Log.i(TAG,"[onCameraFrame]: if finger touch timeline then show the displayImage." );
-        //region if finger touch timeline then show the displayImage.
-        try{
-            if(fitArm!=null && fitFinger!=null && timelineRoi!=null)
-            {
+        Log.i(TAG, "[onCameraFrame]: if finger touch timeline then show the displayImage.");
+        //region if finger touch a datePoint on the timeline then show the displayImage.
+        try {
+            if (fitArm != null && fitFinger != null && timelineRoi != null) {
                 Point fingerPoint = fitFinger.tl();
-                if(timelineRoi.contains(fingerPoint))
-                {
-                    Mat displayimg = getDisplayImage(R.drawable.testinfo1);
 
-                    if(!displayimg.empty()){
+                //region if finger touch "datePoint" then show the displayImage.
+                int flag = -1;
+                for(int i=0; i<4; i++)
+                {
+                    if(datePoints[i].contains(fingerPoint))
+                    {
+                        flag = i;
+                    }
+                }
+
+                Mat displayimg;
+                switch (flag)
+                {
+                    case 0:
+                        displayimg =getDisplayImage(R.drawable.funghi1,100,100);
+                        if(!displayimg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int) fitFinger.tl().x;
+                            int y = (int) (fitFinger.tl().y / 2);
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayimg.width(), displayimg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayimg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                    case 1:
+                        displayimg =getDisplayImage(R.drawable.funghi2,100,100);
+                        if(!displayimg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int) fitFinger.tl().x;
+                            int y = (int) (fitFinger.tl().y / 2);
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayimg.width(), displayimg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayimg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                    case 2:
+                        displayimg =getDisplayImage(R.drawable.funghi3,100,100);
+                        if(!displayimg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int) fitFinger.tl().x;
+                            int y = (int) (fitFinger.tl().y / 2);
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayimg.width(), displayimg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayimg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                    case 3:
+                        displayimg =getDisplayImage(R.drawable.funghi4,100,100);
+                        if(!displayimg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int) fitFinger.tl().x;
+                            int y = (int) (fitFinger.tl().y / 2);
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayimg.width(), displayimg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayimg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                }
+                //endregion
+
+                //region if finger touch "timeline" then show the displayImage.
+                /*
+                if (timelineRoi.contains(fingerPoint)) {
+                    Mat displayimg = getDisplayImage(R.drawable.testinfo1,300,200);
+
+                    if (!displayimg.empty()) {
 
                         //set the coordinate to show displayimg
-                        int x = (int)fitFinger.tl().x;
-                        int y = (int)(fitFinger.tl().y/2);
+                        int x = (int) fitFinger.tl().x;
+                        int y = (int) (fitFinger.tl().y / 2);
 
                         //set the para of addWeighted function
+                        //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
                         double alpha = 0.8;
-                        double beta = 0.5;
+                        double beta = 1;
                         double gamma = 1;
 
                         //show displayimg
-                        Rect displayimg_roi = new Rect(x,y,displayimg.width(),displayimg.height());
+                        Rect displayimg_roi = new Rect(x, y, displayimg.width(), displayimg.height());
                         Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayimg, beta, gamma, rgbaImg.submat(displayimg_roi));
 
                         Log.i(TAG, "[onCameraFrame]: show displayimg success!");
                     }
-                }
+                }*/
+                //endregion
             }
-        }catch (Exception e){
-            Log.e(TAG,"[onCameraFrame]: show the displayImage ERROR!");
+        } catch (Exception e) {
+            Log.e(TAG, "[onCameraFrame]: show the displayImage ERROR!");
         }
         //endregion
 
@@ -554,7 +662,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
     }
 
-    /** get timeline image resources */
+    /** get timeline image resources (不用了) */
+    //region
+    /**
     private void getTimelineImage()
     {
         try{
@@ -568,14 +678,16 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Log.e(TAG, "[getTimelineImage]: "+e.getMessage());
         }
 
-    }
+    }*/
+    //endregion
 
     /** get the image that you want to show on the screen. */
-    private Mat getDisplayImage(int drawableId)
+    private Mat getDisplayImage(int drawableId,double resize_x, double resize_y)
     {
         Mat displayImage = new Mat();
         Mat resizeDisplayImage = new Mat();
-        Size size = new Size(300,200);
+        Size size = new Size(resize_x,resize_y);
+
 
         //get displayImage
         try{
