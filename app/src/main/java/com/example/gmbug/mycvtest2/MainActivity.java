@@ -16,6 +16,7 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
@@ -29,6 +30,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
@@ -49,6 +51,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private Rect fitArm = null;
 
     private Point screenCenter;
+    private int screenWidth;
+    private int screenHight;
     private int frameCounter = 0;
     private int preFrameCounter = -1;
     private int prePreFrameCounter = -2;
@@ -84,7 +88,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     //initialize CascadeClassifier_arm
                     try{
-                        cascadeClassifier_object = generalizationInitializeCascadeClassifier(R.raw.object2_cascade,"object2_cascade.xml");
+                        cascadeClassifier_object = generalizationInitializeCascadeClassifier(R.raw.test5_finger_cascade,"test5_finger_cascade.xml");
                         Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize success.");
                     }catch(Exception e){
                         Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize fail.");
@@ -92,7 +96,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     mOpenCvCameraView.enableView();
 
-                    screenCenter = new Point(mOpenCvCameraView.getWidth()/2,mOpenCvCameraView.getHeight()/2);
+                    screenWidth = mOpenCvCameraView.getWidth();
+                    screenHight = mOpenCvCameraView.getHeight();
+                    screenCenter = new Point(screenWidth/2, screenHight/2);
                     frameCounter = 0; //initialize frame counter
                     break;
                 default:
@@ -177,18 +183,28 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         grayImg = inputFrame.gray();
 
         //region ------ step1: arm and palm detection ------
-        //region --- part1 arm detection
+        //region --- part1 palm detection
+
+        //endregion
+
+        //region --- part2 arm detection
         // skin color detection
         Mat skinImg = skinColorDetect(rgbaImg);
 
-        //edge detection
+        //edge detection (find the Largest Area Contour that maybe Arm)
+        ArrayList<MatOfPoint> largestContour = findLargestAreaContour(skinImg);
+        //Imgproc.drawContours(rgbaImg, largestContour, 0, RECT_COLOR, 5); //draw Contour
+        Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
+        Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
+
         // conditions 1:Aspect ratio
+
+
         // conditions 2:Accounting for the proportion of the screen
-        //endregion
-
-        //region --- part2 palm detection
 
         //endregion
+
+
 
         //endregion
 
@@ -222,7 +238,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         prePreFrameCounter++;
         Log.e(TAG, "[onCameraFrame]: frameCounter="+frameCounter+".");
 
-        return skinImg;
+        return rgbaImg;
     }
 
 
@@ -375,17 +391,62 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     }
     //endregion
 
+
+    //region arm detection
+    private void armDetect(Mat inFrame)
+    {
+        //skin detect
+        //find the contour of largest area
+        // conditions 1:Aspect ratio
+        // conditions 2:Accounting for the proportion of the screen
+    }
+
     /** skin color detection */
     private Mat skinColorDetect(Mat rgbImage)
     {
         Mat resultImg = new Mat();
+
+        //skin detect
         Mat hvsImg = new Mat();
         Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
         Core.inRange(hvsImg, skinLower, skinUpper, resultImg);
 
+        //Perform and decrease noise
+        Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
+
+        Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
+        Imgproc.erode(resultImg, resultImg, kernel); //侵蝕
+        //Imgproc.GaussianBlur(resultImg, resultImg, new Size(5, 5), 0); //高斯模糊
+
         return  resultImg;
     }
 
+    /** find the largest area Contour */
+    private ArrayList<MatOfPoint> findLargestAreaContour(Mat skinImage)
+    {
+        ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+        Mat hierarchy =new Mat();
 
+        //find all contours
+        Imgproc.findContours(skinImage, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        //extract the largest area contour
+        double maxVal = 0;
+        int maxValIdx = 0;
+        for (int contourIdx = 0; contourIdx < contours.size(); contourIdx++)
+        {
+            double contourArea = Imgproc.contourArea(contours.get(contourIdx));
+            if (maxVal < contourArea)
+            {
+                maxVal = contourArea;
+                maxValIdx = contourIdx;
+            }
+        }
+        ArrayList<MatOfPoint> largestAreaContour = new ArrayList<MatOfPoint>();
+        largestAreaContour.add(contours.get(maxValIdx));
+        return largestAreaContour;
+    }
+
+    //endregion
 
 } //end class
