@@ -195,10 +195,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         ArrayList<MatOfPoint> largestContour = findLargestAreaContour(skinImg);
         //Imgproc.drawContours(rgbaImg, largestContour, 0, RECT_COLOR, 5); //draw Contour
         Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
-        Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
+        //Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
 
-        // conditions 1:Aspect ratio
-
+        // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth)
+        if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth){
+            Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
+        }
 
         // conditions 2:Accounting for the proportion of the screen
 
