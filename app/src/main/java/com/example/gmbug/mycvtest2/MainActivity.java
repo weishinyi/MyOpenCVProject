@@ -39,7 +39,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private String TAG = "MyCvTest2";
 
     private CameraBridgeViewBase mOpenCvCameraView;
-    private CascadeClassifier cascadeClassifier_object; //recognize palm to show the keyboard
+    private CascadeClassifier cascadeClassifier_palm; //recognize palm to show the keyboard
 
     private static final Scalar RECT_COLOR = new Scalar(0, 255, 0, 255); //green color scalar
     private static final Scalar RECT_COLOR_FINGER = new Scalar(255, 0, 255, 0); //purple color scalar
@@ -86,9 +86,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 case LoaderCallbackInterface.SUCCESS:
                     Log.i(TAG, "OpenCV loaded successfully!");
 
-                    //initialize CascadeClassifier_arm
+                    //initialize CascadeClassifier_palm
                     try{
-                        cascadeClassifier_object = generalizationInitializeCascadeClassifier(R.raw.test5_finger_cascade,"test5_finger_cascade.xml");
+                        cascadeClassifier_palm = generalizationInitializeCascadeClassifier(R.raw.hand_cascade,"hand_cascade.xml");
                         Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize success.");
                     }catch(Exception e){
                         Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize fail.");
@@ -184,36 +184,42 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //region ------ step1: arm and palm detection ------
         //region --- part1 palm detection
+        MatOfRect plams = detectObjects();
+        Rect[] plamsArray = plams.toArray();
+        for (int i = 0; i <plamsArray.length; i++)
+            Imgproc.rectangle(rgbaImg, plamsArray[i].tl(), plamsArray[i].br(), RECT_COLOR_FINGER, 3);
 
         //endregion
 
         //region --- part2 arm detection
+        //region 未封裝的arm detection流程(已註解)
+        /*
         // skin color detection
         Mat skinImg = skinColorDetect(rgbaImg);
 
         //edge detection (find the Largest Area Contour that maybe Arm)
         ArrayList<MatOfPoint> largestContour = findLargestAreaContour(skinImg);
 
-        if(!largestContour.isEmpty()){
+        if(!largestContour.isEmpty())
+        {
             //Imgproc.drawContours(rgbaImg, largestContour, 0, RECT_COLOR, 5); //draw Contour
             Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
             //Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
 
-            // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth)
+            // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth && w/h > 1.5)
 
-            if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth){
+            if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth && rectBound.width/ rectBound.height > 1.5)
+            {
                 Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
             }
-
-            // conditions 2:Accounting for the proportion of the screen
-
-
-
-        }
-
+        }*/
         //endregion
-
-
+        Rect armRect = armDetect(rgbaImg);
+        if(armRect != null)
+        {
+            Imgproc.rectangle(rgbaImg, new Point(armRect.x, armRect.y), new Point(armRect.x + armRect.width, armRect.y + armRect.height), RECT_COLOR, 3);
+        }
+        //endregion
 
         //endregion
 
@@ -292,7 +298,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     }
     //endregion
 
-    /** set the size of detection face */
+    /** set the size of detection object */
     //region setAbsoluteObjectSize(int height)
     private void setAbsoluteObjectSize(int height)
     {
@@ -308,9 +314,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         MatOfRect objects = new MatOfRect();
 
         try{
-            if(cascadeClassifier_object != null)
+            if(cascadeClassifier_palm != null)
             {
-                cascadeClassifier_object.detectMultiScale(grayImg,objects,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
+                cascadeClassifier_palm.detectMultiScale(grayImg,objects,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
             }
 
             Log.i(TAG, "[detectArms]: using classifier to detect arms success!");
@@ -402,12 +408,29 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
 
     //region arm detection
-    private void armDetect(Mat inFrame)
+    private Rect armDetect(Mat inFrame)
     {
+        Rect arm = null;
+
         //skin detect
+        Mat imgSkin = skinColorDetect(inFrame);
+
         //find the contour of largest area
+        ArrayList<MatOfPoint> largestContour = findLargestAreaContour(imgSkin);
+
         // conditions 1:Aspect ratio
-        // conditions 2:Accounting for the proportion of the screen
+        if(!largestContour.isEmpty())
+        {
+            Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
+
+            // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth && w/h > 1.5)
+            if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth && rectBound.width/ rectBound.height > 1.5)
+            {
+                arm = rectBound;
+            }
+        }
+
+        return arm;
     }
 
     /** skin color detection */
