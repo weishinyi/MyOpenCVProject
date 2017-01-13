@@ -193,16 +193,23 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //edge detection (find the Largest Area Contour that maybe Arm)
         ArrayList<MatOfPoint> largestContour = findLargestAreaContour(skinImg);
-        //Imgproc.drawContours(rgbaImg, largestContour, 0, RECT_COLOR, 5); //draw Contour
-        Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
-        //Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
 
-        // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth)
-        if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth){
-            Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
+        if(!largestContour.isEmpty()){
+            //Imgproc.drawContours(rgbaImg, largestContour, 0, RECT_COLOR, 5); //draw Contour
+            Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
+            //Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
+
+            // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth)
+
+            if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth){
+                Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR, 3);
+            }
+
+            // conditions 2:Accounting for the proportion of the screen
+
+
+
         }
-
-        // conditions 2:Accounting for the proportion of the screen
 
         //endregion
 
@@ -408,17 +415,21 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     {
         Mat resultImg = new Mat();
 
-        //skin detect
-        Mat hvsImg = new Mat();
-        Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
-        Core.inRange(hvsImg, skinLower, skinUpper, resultImg);
+        try {
+            //skin detect
+            Mat hvsImg = new Mat();
+            Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
+            Core.inRange(hvsImg, skinLower, skinUpper, resultImg);
 
-        //Perform and decrease noise
-        Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
+            //Perform and decrease noise
+            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
 
-        Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
-        Imgproc.erode(resultImg, resultImg, kernel); //侵蝕
-        //Imgproc.GaussianBlur(resultImg, resultImg, new Size(5, 5), 0); //高斯模糊
+            Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
+            Imgproc.erode(resultImg, resultImg, kernel); //侵蝕
+            //Imgproc.GaussianBlur(resultImg, resultImg, new Size(5, 5), 0); //高斯模糊
+        }catch (Exception e){
+            Log.e(TAG, e.getMessage());
+        }
 
         return  resultImg;
     }
@@ -426,26 +437,32 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     /** find the largest area Contour */
     private ArrayList<MatOfPoint> findLargestAreaContour(Mat skinImage)
     {
-        ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-        Mat hierarchy =new Mat();
-
-        //find all contours
-        Imgproc.findContours(skinImage, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-
-        //extract the largest area contour
-        double maxVal = 0;
-        int maxValIdx = 0;
-        for (int contourIdx = 0; contourIdx < contours.size(); contourIdx++)
-        {
-            double contourArea = Imgproc.contourArea(contours.get(contourIdx));
-            if (maxVal < contourArea)
-            {
-                maxVal = contourArea;
-                maxValIdx = contourIdx;
-            }
-        }
         ArrayList<MatOfPoint> largestAreaContour = new ArrayList<MatOfPoint>();
-        largestAreaContour.add(contours.get(maxValIdx));
+
+        try {
+            ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+            Mat hierarchy = new Mat();
+
+            //find all contours
+            Imgproc.findContours(skinImage, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+            //extract the largest area contour
+            double maxVal = 0;
+            int maxValIdx = 0;
+            for (int contourIdx = 0; contourIdx < contours.size(); contourIdx++) {
+                double contourArea = Imgproc.contourArea(contours.get(contourIdx));
+                if (maxVal < contourArea) {
+                    maxVal = contourArea;
+                    maxValIdx = contourIdx;
+                }
+            }
+
+            largestAreaContour.add(contours.get(maxValIdx));
+
+        }catch (Exception e){
+            Log.e(TAG, e.getMessage());
+        }
+
         return largestAreaContour;
     }
 
