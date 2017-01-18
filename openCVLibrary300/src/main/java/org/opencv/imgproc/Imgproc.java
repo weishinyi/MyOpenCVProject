@@ -747,6 +747,27 @@ public class Imgproc {
         return retVal;
     }
 
+    //
+    // C++:  Moments moments(Mat array, bool binaryImage = false)
+    //
+
+        //javadoc: moments(array, binaryImage)
+        public static Moments moments(Mat array, boolean binaryImage)
+        {
+
+                Moments retVal = new Moments(moments_0(array.nativeObj, binaryImage));
+
+                return retVal;
+        }
+
+        //javadoc: moments(array)
+        public static Moments moments(Mat array)
+        {
+
+                Moments retVal = new Moments(moments_1(array.nativeObj));
+
+                return retVal;
+        }
 
     //
     // C++:  void medianBlur(Mat src, Mat& dst, int ksize)
@@ -2919,6 +2940,10 @@ public class Imgproc {
     // C++:  Mat getStructuringElement(int shape, Size ksize, Point anchor = Point(-1,-1))
     private static native long getStructuringElement_0(int shape, double ksize_width, double ksize_height, double anchor_x, double anchor_y);
     private static native long getStructuringElement_1(int shape, double ksize_width, double ksize_height);
+
+    // C++:  Moments moments(Mat array, bool binaryImage = false)
+    private static native double[] moments_0(long array_nativeObj, boolean binaryImage);
+    private static native double[] moments_1(long array_nativeObj);
 
     // C++:  void medianBlur(Mat src, Mat& dst, int ksize)
     private static native void medianBlur_0(long src_nativeObj, long dst_nativeObj, int ksize);

@@ -23,6 +23,7 @@ import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.imgproc.Moments;
 import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.imgcodecs.Imgcodecs;
 
@@ -32,6 +33,7 @@ import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
@@ -43,6 +45,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     private static final Scalar RECT_COLOR = new Scalar(0, 255, 0, 255); //green color scalar
     private static final Scalar RECT_COLOR_FINGER = new Scalar(255, 0, 255, 0); //purple color scalar
+    private static final Scalar RECT_COLOR_PALM = new Scalar(255, 0, 0, 0); // color scalar
 
     private Mat rgbaImg;
     private Mat grayImg;
@@ -57,9 +60,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int preFrameCounter = -1;
     private int prePreFrameCounter = -2;
 
-    //ex: boolean[] array = new boolean[size];
-    private boolean[] armFlagArr = new boolean[3];
-    private boolean[] palmFlagArr = new boolean[3];
+    //ex: List<Boolean> list = ArrayList<Boolean> ();
+    private List<Boolean> armFlagls = new ArrayList<Boolean>();
+    private List<Boolean> palmFlags = new ArrayList<Boolean>();
 
     //skin detection  H,S,V range
     /** maybe use
@@ -72,6 +75,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
      * */
     private Scalar skinLower = new Scalar(0, 0.18*255, 0);
     private Scalar skinUpper = new Scalar(25, 0.68*255, 255);
+
+    //fingertip color detection H,S,V range
+    private Scalar fingertipLower = new Scalar(240, 50, 178);
+    private Scalar fingertipUpper = new Scalar(255, 80, 255);
+
+    //trigger point array
+    Point[] kyTriggerPointArray = null;
+    Point[] tlTriggerPointArray = null;
 
 
     //---------------------- basic functions ----------------------------
@@ -122,10 +133,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
             mOpenCvCameraView.setCvCameraViewListener(MainActivity.this);
         }
-
-        //initialize armFlagArr & palmFlagArr
-        Arrays.fill(armFlagArr, false);
-        Arrays.fill(palmFlagArr, false);
     }
 
     @Override
@@ -181,14 +188,28 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         rgbaImg = inputFrame.rgba();
         grayImg = inputFrame.gray();
+        Mat rgbaImg2 = inputFrame.rgba().clone();
 
         //region ------ step1: arm and palm detection ------
-        //region --- part1 palm detection
-        MatOfRect plams = detectObjects();
-        Rect[] plamsArray = plams.toArray();
-        for (int i = 0; i <plamsArray.length; i++)
-            Imgproc.rectangle(rgbaImg, plamsArray[i].tl(), plamsArray[i].br(), RECT_COLOR_FINGER, 3);
 
+        //region --- part1 palm detection
+        /*
+        Boolean currentPalmFlag = false;
+        MatOfRect palms = detectObjects();
+        Rect[] palmsArray = palms.toArray();
+        for (int i = 0; i <palmsArray.length; i++)
+            Imgproc.rectangle(rgbaImg, palmsArray[i].tl(), palmsArray[i].br(), RECT_COLOR_PALM, 3);
+        //set palmFlags
+        if(palmsArray.length>0)
+            currentPalmFlag = true;
+        if(palmFlags.size() < 3)
+        {
+            palmFlags.add(currentPalmFlag);
+        }else{
+            palmFlags.remove(0);
+            palmFlags.add(currentPalmFlag);
+        }
+        */
         //endregion
 
         //region --- part2 arm detection
@@ -214,29 +235,242 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             }
         }*/
         //endregion
+        Boolean currentArmFlag = false;
         Rect armRect = armDetect(rgbaImg);
         if(armRect != null)
         {
             Imgproc.rectangle(rgbaImg, new Point(armRect.x, armRect.y), new Point(armRect.x + armRect.width, armRect.y + armRect.height), RECT_COLOR, 3);
+            currentArmFlag =true;
+        }
+        //set armFlags
+        if(armFlagls.size() < 3)
+        {
+            armFlagls.add(currentArmFlag);
+        }else{
+            armFlagls.remove(0);
+            armFlagls.add(currentArmFlag);
+        }
+
+        //endregion
+
+        //endregion
+
+        //region ------ step2: create the keyboard and timeline & step3: locate the trigger point ------
+
+        //region --- part1 keyboard
+        /*
+        if(currentPalmFlag)
+        {
+            //get keyboard image
+            Mat keyboardImg =  getDisplayImage(R.drawable.numberkeypad2,200,300);
+            if(!keyboardImg.empty())
+            {
+                //region part1: show keyboardImg
+                //set the coordinate to show keyboardImg
+                Rect palmRect = new Rect(palmsArray[0].tl(),palmsArray[0].br());
+                Point palmC = new Point(palmRect.x+(palmRect.width/2), palmRect.y+(palmRect.height/2));
+                int x = (int) palmC.x-100;
+                int y = (int) palmC.y-150;
+
+                //set the para of addWeighted function
+                //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                double alpha = 0.8;
+                double beta = 1;
+                double gamma = 1;
+
+                //show keyboardImg
+                Rect keyboardImg_roi = new Rect(x, y, keyboardImg.width(), keyboardImg.height());
+                Core.addWeighted(rgbaImg.submat(keyboardImg_roi), alpha, keyboardImg, beta, gamma, rgbaImg.submat(keyboardImg_roi));
+
+                Log.i(TAG, "[onCameraFrame]: show keyboardImg success!");
+                //endregion
+
+                //region part2: local the trigger point
+
+                //endregion
+            }
+        }
+        */
+        //endregion
+
+        //region --- part2 timeline
+        if(currentArmFlag)
+        {
+            //get timeline image
+            Mat timelineImg =  getDisplayImage(R.drawable.timeline2,700,100);
+            if(!timelineImg.empty())
+            {
+                //region part1: show timeline
+                //set the coordinate to show timelineImg
+                Point armC = new Point(armRect.tl().x+(armRect.width/2) , armRect.tl().y+(armRect.height/2));
+                int x = (int) armC.x-350;
+                int y = (int) armC.y-50;
+
+                //set the para of addWeighted function
+                //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                double alpha = 0.8;
+                double beta = 1;
+                double gamma = 1;
+
+                //show timelineImg
+                Rect timelineImg_roi = new Rect(x, y, timelineImg.width(), timelineImg.height());
+                Core.addWeighted(rgbaImg.submat(timelineImg_roi), alpha, timelineImg, beta, gamma, rgbaImg.submat(timelineImg_roi));
+
+                Log.i(TAG, "[onCameraFrame]: show timelineImg success!");
+                //endregion
+
+                //region part2: local the trigger point
+                //66,45 162,45  350,50  600,50
+                int[] datePointX = {66,162,350,600};
+                int[] datePointY = {45,45,50,50};
+                tlTriggerPointArray = new Point[4];
+                for(int i=0; i<datePointX.length; i++)
+                {
+                    tlTriggerPointArray[i] = new Point(x+datePointX[i],y+datePointY[i]);
+                }
+
+                //test tlTriggerPoint
+                for(int i=0; i<tlTriggerPointArray.length;i++)
+                {
+                    //draw a "+" on frame
+                    Point p = tlTriggerPointArray[i];
+                    Imgproc.circle(rgbaImg, p, 3, RECT_COLOR_PALM,-1);
+                }
+
+                //endregion
+            }
         }
         //endregion
 
         //endregion
 
-        //region ------ step2: create the timeline and keyboard ------
-
-        //endregion
-
-        //region ------ step3: locate the trigger point ------
-
-        //endregion
-
         //region ------ step4: fingertip detection ------
+        /*
+        Rect fingertipRect = fingertipDetect(rgbaImg2);
+        if(fingertipRect!=null)
+        {
+            Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), RECT_COLOR_FINGER, 5);
+        }
+        */
 
         //endregion
 
         //region ------ step5: touch detection ------
+        /*
+        //if palm, arm, fingertip exist then do touch detection
+        if(fingertipRect!=null)
+        {
 
+            ////palm is exist
+            //if(currentPalmFlag)
+            //{
+             ////if touch the keyboard trigger point then show result
+            //}
+
+
+            //arm is exist
+            if(currentArmFlag)
+            {
+                //if the tlTriggerPoint in the fingertipRect, and which tlTriggerPoint
+                int tlTriggerFlag = -1;
+                for(int i=0; i<tlTriggerPointArray.length; i++)
+                {
+                    if(fingertipRect.contains(tlTriggerPointArray[i]))
+                        tlTriggerFlag= i;
+                }
+
+                //show result image
+                Mat displayImg;
+                switch (tlTriggerFlag)
+                {
+                    case 0:
+                        displayImg = getDisplayImage(R.drawable.funghi1,200,200);
+                        if(!displayImg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int)tlTriggerPointArray[0].x;
+                            int y = (int)tlTriggerPointArray[0].y/2;
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                    case 1:
+                        displayImg = getDisplayImage(R.drawable.funghi2,200,200);
+                        if(!displayImg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int)tlTriggerPointArray[1].x;
+                            int y = (int)tlTriggerPointArray[1].y/2;
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                    case 2:
+                        displayImg = getDisplayImage(R.drawable.funghi3,200,200);
+                        if(!displayImg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int)tlTriggerPointArray[2].x;
+                            int y = (int)tlTriggerPointArray[2].y/2;
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                    case 3:
+                        displayImg = getDisplayImage(R.drawable.funghi4,200,200);
+                        if(!displayImg.empty())
+                        {
+                            //set the coordinate to show displayimg
+                            int x = (int)tlTriggerPointArray[3].x;
+                            int y = (int)tlTriggerPointArray[3].y/2;
+
+                            //set the para of addWeighted function
+                            //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
+                            double alpha = 0.8;
+                            double beta = 1;
+                            double gamma = 1;
+
+                            //show displayimg
+                            Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
+                            Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
+
+                            Log.i(TAG, "[onCameraFrame]: show displayimg success!");
+                        }
+                        break;
+                }
+            }
+        }
+        */
         //endregion
 
         //region ------ step6: touch verify ------
@@ -246,7 +480,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //region ------ step7: output the result ------
 
         //endregion
-
 
         frameCounter++; //frameCounter = frameCounter + 1;
         preFrameCounter++;
@@ -259,6 +492,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
 //---------------------- functions ----------------------------
 
+    //region --- CascadeClassifier about ---
     /** Generalization Initialize Cascade Classifier */
     //region CascadeClassifier generalizationInitializeCascadeClassifier(int xmlfileId, String xmlfileName)
     private CascadeClassifier generalizationInitializeCascadeClassifier(int xmlfileId, String xmlfileName)
@@ -319,15 +553,17 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 cascadeClassifier_palm.detectMultiScale(grayImg,objects,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
             }
 
-            Log.i(TAG, "[detectArms]: using classifier to detect arms success!");
+            //Log.i(TAG, "[detectObjects]: using classifier to detect palm success!");
         }catch(Exception e){
-            Log.e(TAG, "[detectArms]: using classifier to detect arms ERROR!");
+            Log.e(TAG, "[detectObjects]: using classifier to detect palm ERROR!");
         }
 
         return objects;
     }
     //endregion
+    //endregion
 
+    //region --- choose Fit Object ---
     //region Rect chooseFitObject(MatOfRect objects)
     private Rect chooseFitObject(MatOfRect objects)
     {
@@ -405,9 +641,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
     }
     //endregion
+    //endregion
 
-
-    //region arm detection
+    //region --- arm detection ---
     private Rect armDetect(Mat inFrame)
     {
         Rect arm = null;
@@ -431,6 +667,51 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
 
         return arm;
+    }
+
+    //找出arm輪廓質心(沒用到)
+    private Point fineArmCentroid(Mat inFrame)
+    {
+        Point Centroid = null;
+
+        //get arm contour
+        ArrayList<MatOfPoint> contours = findArmContour(inFrame);
+
+        //find arm centroid
+        if(contours!= null)
+        {
+            MatOfPoint contour = contours.get(0);
+            Moments moments = Imgproc.moments(contour, false);
+            Centroid = new Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
+        }
+
+        return Centroid;
+    }
+
+    //find Arm Contour(with conditions filter)
+    private ArrayList<MatOfPoint> findArmContour(Mat inFrame)
+    {
+        ArrayList<MatOfPoint> contour = null;
+
+        //skin detect
+        Mat imgSkin = skinColorDetect(inFrame);
+
+        //find the contour of largest area
+        ArrayList<MatOfPoint> largestContour = findLargestAreaContour(imgSkin);
+
+        // conditions 1:Aspect ratio
+        if(!largestContour.isEmpty())
+        {
+            Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
+
+            // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth && w/h > 1.5)
+            if(rectBound.height > 0.5*screenHight && rectBound.width > 0.75*screenWidth && rectBound.width/ rectBound.height > 1.5)
+            {
+                contour = largestContour;
+            }
+        }
+
+        return contour;
     }
 
     /** skin color detection */
@@ -488,6 +769,104 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         return largestAreaContour;
     }
+
+    //endregion
+
+    //region --- get display image ---
+    /** get the image that you want to show on the screen. */
+    private Mat getDisplayImage(int drawableId,double resize_x, double resize_y)
+    {
+        Mat displayImage = new Mat();
+        Mat resizeDisplayImage = new Mat();
+        Size size = new Size(resize_x,resize_y);
+
+        //get displayImage
+        try{
+            Bitmap bmp = BitmapFactory.decodeResource(getResources(), drawableId);
+            Utils.bitmapToMat(bmp,displayImage);
+
+            Log.i(TAG, "[getDisplayImage]: get display image success!");
+        }catch(Exception e){
+            Log.e(TAG, "[getDisplayImage]: get displayImage ERROR! "+e.getMessage());
+        }
+
+        //resize the displayImage
+        try{
+            if(!displayImage.empty())
+            {
+                Imgproc.resize(displayImage,resizeDisplayImage,size);
+                Log.i(TAG, "[getDisplayImage]: resize success!");
+            }
+        }catch (Exception e){
+            Log.e(TAG, "[getDisplayImage]: resize ERROR! "+e.getMessage());
+        }
+
+        return resizeDisplayImage;
+    }
+    //endregion
+
+    //region --- fingertip detection ---
+    private Rect fingertipDetect(Mat inFrame)
+    {
+        Rect fingertip = null;
+
+        ArrayList<MatOfPoint> contour = findfingertipContour(inFrame);
+
+        if(contour!=null)
+        {
+            fingertip = Imgproc.boundingRect(contour.get(0)); // Get bounding rect of contour
+        }
+
+        return fingertip;
+    }
+
+    private ArrayList<MatOfPoint> findfingertipContour(Mat inFrame)
+    {
+        ArrayList<MatOfPoint> contour = null;
+
+        //fingertip color detect
+        Mat imgFingertip = fingertipColorDetect(inFrame);
+
+        //find the contour of largest area
+        ArrayList<MatOfPoint> largestContour = findLargestAreaContour(imgFingertip);
+
+        // conditions 1:Aspect ratio
+        if(!largestContour.isEmpty())
+        {
+            Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
+
+            // conditions 1:Aspect ratio (h,w) range in (100,100) ~ (30,30)
+            if(rectBound.height>30 && rectBound.width>30  && rectBound.height<100 && rectBound.width<100)
+            {
+                contour = largestContour;
+            }
+        }
+
+        return contour;
+    }
+
+    /** fingertip color detection */
+    private Mat fingertipColorDetect(Mat rgbImage)
+    {
+        Mat resultImg = new Mat();
+
+        try {
+            Mat hvsImg = new Mat();
+            Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
+            Core.inRange(hvsImg, fingertipLower, fingertipUpper, resultImg);
+
+            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
+            Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
+            //Imgproc.erode(resultImg, resultImg, kernel); //侵蝕
+            //Imgproc.GaussianBlur(resultImg, resultImg, new Size(5, 5), 0); //高斯模糊
+
+        }catch (Exception e){
+            Log.e(TAG, e.getMessage());
+        }
+
+        return  resultImg;
+    }
+
 
     //endregion
 
