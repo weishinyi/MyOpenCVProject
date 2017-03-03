@@ -4,12 +4,12 @@
     xmlns:opencv="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.gmbug.mycvtest1.MainActivity">
+    tools:context="com.example.gmbug.mycvtest2.KeyboardActivity">
 
     <org.opencv.android.JavaCameraView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/cameraView"
+        android:id="@+id/cameraView_ky"
         android:visibility="gone"
         opencv:show_fps="true"
         opencv:camera_id="any"/>

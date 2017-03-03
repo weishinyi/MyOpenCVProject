@@ -1,6 +1,7 @@
 package com.example.gmbug.mycvtest2;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Environment;
@@ -42,7 +43,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private String TAG = "MyCvTest2";
 
     private CameraBridgeViewBase mOpenCvCameraView;
-    private CascadeClassifier cascadeClassifier_palm; //recognize palm to show the keyboard
+    //private CascadeClassifier cascadeClassifier_palm; //recognize palm to show the keyboard
+    //private int absoluteObjectSize = 0;
 
     //color Scalar (r,g,b)
     private static final Scalar RECT_COLOR_GREEN = new Scalar(0, 255, 0, 255); //green color scalar
@@ -54,9 +56,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     //Mat
     private Mat rgbaImg;
     private Mat grayImg;
-    private Mat bgImg = null;
-
-    private int absoluteObjectSize = 0;
+    //private Mat bgImg = null;
 
     //private Rect fitArm = null;
 
@@ -83,7 +83,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     //flags
     //ex: List<Boolean> list = ArrayList<Boolean> ();
     private List<Boolean> armFlagls = new ArrayList<Boolean>();
-    private List<Boolean> palmFlags = new ArrayList<Boolean>();
+    //private List<Boolean> palmFlags = new ArrayList<Boolean>();
 
     //skin detection  H,S,V range
     /** maybe use
@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private Scalar fingertipUpper = new Scalar(255, 80, 255);
 
     //trigger point array
-    Point[] kyTriggerPointArray = null;
+    //Point[] kyTriggerPointArray = null;
     Point[] tlTriggerPointArray = null;
 
     //endregion
@@ -119,13 +119,15 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 case LoaderCallbackInterface.SUCCESS:
                     Log.i(TAG, "OpenCV loaded successfully!");
 
-                    //initialize CascadeClassifier_palm
+                    //region initialize CascadeClassifier_palm (註解了)
+                    /*
                     try{
                         cascadeClassifier_palm = generalizationInitializeCascadeClassifier(R.raw.hand_cascade,"hand_cascade.xml");
                         Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize success.");
                     }catch(Exception e){
                         Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize fail.");
-                    }
+                    }*/
+                    //endregion
 
                     mOpenCvCameraView.enableView();
 
@@ -141,7 +143,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                     btnhwRect = new Rect(x0+2*btnWidth, btnPadding, btnWidth, btnHeight);
 
                     //initialize counter
-                    frameCounter = 0; //initialize frame counter
+                    frameCounter = 0;
                     break;
                 default:
                     super.onManagerConnected(status);
@@ -195,7 +197,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Log.i(TAG, "onCameraViewStarted!");
 
         //set the size of detection object
-        setAbsoluteObjectSize(height);
+        //setAbsoluteObjectSize(height);
     }
 
     @Override
@@ -239,8 +241,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //region ------ step1: arm and palm detection ------
 
-        //region --- part1 palm detection
+        //region --- part1 palm detection (註解了)
         Boolean currentPalmFlag = false;
+        /*
         MatOfRect palms = detectObjects();
         Rect[] palmsArray = palms.toArray();
         for (int i = 0; i <palmsArray.length; i++) {
@@ -268,7 +271,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             bgImg = null;
             Imgproc.putText(rgbaImg,"clear gbImg!!", screenCenter, Core.FONT_HERSHEY_SIMPLEX, 2.6f, RECT_COLOR_GREEN,3);
         }
-
+        */
         //endregion
 
         //region --- part2 arm detection
@@ -317,8 +320,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //region ------ step2: create the keyboard and timeline & step3: locate the trigger point ------
 
-        //region --- part1 keyboard
-
+        //region --- part1 keyboard (註解了)
+        /*
         if(currentPalmFlag)
         {
             //get keyboard image
@@ -350,7 +353,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 //endregion
             }
         }
-
+        */
         //endregion
 
         //region --- part2 timeline
@@ -406,21 +409,16 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //region ------ step4: fingertip detection ------
         Rect fingertipRect = null;
-        if (currentArmFlag)
+        fingertipRect = fingertipDetect(rgbaImg2);
+        if(fingertipRect!=null)
         {
-            fingertipRect = fingertipDetect(rgbaImg2);
-            if(fingertipRect!=null)
-            {
-                Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), RECT_COLOR_PURPLE, 5);
-            }
+            Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), RECT_COLOR_PURPLE, 5);
         }
 
        //Mat dst = new Mat(inputFrame.rgba().size(), CvType.CV_8UC1);
        //if(bgImg!=null){
        //     Core.absdiff(bgImg, inputFrame.rgba().clone(), dst);
        // }
-
-
 
         //endregion
 
@@ -429,15 +427,49 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //if palm, arm, fingertip exist then do touch detection
         if(fingertipRect!=null)
         {
-            //palm is exist
+            //region --- touch btn ---
+            Point fingertipCenter = new Point(fingertipRect.tl().x+(fingertipRect.width/2) , fingertipRect.tl().y+(fingertipRect.height/2));
+            byte btnTouchFlag = -1;
+            if(btntlRect.contains(fingertipCenter)){
+                btnTouchFlag = 0;
+            }else if(btnkyRect.contains(fingertipCenter)){
+                btnTouchFlag = 1;
+            }else if(btnhwRect.contains(fingertipCenter)){
+                btnTouchFlag = 2;
+            }
+
+            btnTouchFlag=1;
+
+            if(btnTouchFlag!=-1){
+                Intent intent = new Intent();
+                switch (btnTouchFlag){
+                    case 0:
+                        break;
+                    case 1:
+                        intent.setClass(MainActivity.this, KeyboardActivity.class);
+                        startActivity(intent);
+                        finish();
+                        break;
+                    case 2:
+                        intent.setClass(MainActivity.this, HandwriteActivity.class);
+                        startActivity(intent);
+                        finish();
+                        break;
+                    default:
+                        break;
+                }
+            }
+            //endregion
+
+            //region --- palm is exist ---
+            /*
             if(currentPalmFlag)
             {
              //if touch the keyboard trigger point then show result
-            }
+            }*/
+            //endregion
 
-
-            //arm is exist
-            /*
+            //region --- arm is exist ---
             if(currentArmFlag)
             {
                 //if the tlTriggerPoint in the fingertipRect, and which tlTriggerPoint
@@ -540,7 +572,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                         }
                         break;
                 }
-            }*/
+            }
+            //endregion
         }
 
         //endregion
@@ -561,12 +594,11 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return rgbaImg;
     }
 
-
 //region ---------------------- functions ----------------------------
 
-    //region --- CascadeClassifier about ---
-    /** Generalization Initialize Cascade Classifier */
-    //region CascadeClassifier generalizationInitializeCascadeClassifier(int xmlfileId, String xmlfileName)
+    //region --- CascadeClassifier about (註解了) ---
+    // Generalization Initialize Cascade Classifier
+    /*
     private CascadeClassifier generalizationInitializeCascadeClassifier(int xmlfileId, String xmlfileName)
     {
         CascadeClassifier cascadeClassifier = null;
@@ -601,20 +633,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
 
         return cascadeClassifier;
-    }
-    //endregion
+    }*/
 
-    /** set the size of detection object */
-    //region setAbsoluteObjectSize(int height)
+    // set the size of detection object
+    /*
     private void setAbsoluteObjectSize(int height)
     {
         // The faces will be a 20% of the height of the screen
         absoluteObjectSize = (int)(height *0.2);
-    }
-    //endregion
+    }*/
 
-    /** using classifier detect arms then return MatOfRect */
-    //region MatOfRect detectObjects()
+    // using classifier detect objects then return MatOfRect
+    /*
     private  MatOfRect detectObjects()
     {
         MatOfRect objects = new MatOfRect();
@@ -631,12 +661,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
 
         return objects;
-    }
-    //endregion
+    }*/
+
     //endregion
 
-    //region --- choose Fit Object ---
-    //region Rect chooseFitObject(MatOfRect objects)
+    //region --- choose Fit Object (註解了) ---
+    /*
     private Rect chooseFitObject(MatOfRect objects)
     {
         Rect fitObject = null;
@@ -670,10 +700,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
 
         return fitObject;
-    }
-    //endregion
+    }*/
 
-    //region Rect compareTwoRect(Rect r1,Rect r2)
+    /*
     private Rect compareTwoRect(Rect r1,Rect r2)
     {
         Point center1=null,
@@ -711,8 +740,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }else {
             return r1;
         }
-    }
-    //endregion
+    }*/
     //endregion
 
     //region --- arm detection ---
@@ -741,7 +769,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return arm;
     }
 
-    //找出arm輪廓質心(沒用到)
+    //region 找出arm輪廓質心(沒用到,已註解)
+    /*
     private Point fineArmCentroid(Mat inFrame)
     {
         Point Centroid = null;
@@ -758,9 +787,11 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
 
         return Centroid;
-    }
+    }*/
+    //endregion
 
-    //find Arm Contour(with conditions filter)
+    //region find Arm Contour(with conditions filter) (註解了)
+    /*
     private ArrayList<MatOfPoint> findArmContour(Mat inFrame)
     {
         ArrayList<MatOfPoint> contour = null;
@@ -784,9 +815,10 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
 
         return contour;
-    }
+    }*/
+    //endregion
 
-    /** skin color detection */
+    // skin color detection
     private Mat skinColorDetect(Mat rgbImage)
     {
         Mat resultImg = new Mat();
@@ -809,7 +841,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return  resultImg;
     }
 
-    /** find the largest area Contour */
+    // find the largest area Contour
     private ArrayList<MatOfPoint> findLargestAreaContour(Mat skinImage)
     {
         ArrayList<MatOfPoint> largestAreaContour = new ArrayList<MatOfPoint>();
@@ -844,7 +876,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     //endregion
 
     //region --- get display image ---
-    /** get the image that you want to show on the screen. */
+    // get the image that you want to show on the screen.
     private Mat getDisplayImage(int drawableId,double resize_x, double resize_y)
     {
         Mat displayImage = new Mat();
@@ -916,7 +948,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return contour;
     }
 
-    /** fingertip color detection */
+    // fingertip color detection
     private Mat fingertipColorDetect(Mat rgbImage)
     {
         Mat resultImg = new Mat();
@@ -937,7 +969,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         return  resultImg;
     }
-
 
     //endregion
 
@@ -990,6 +1021,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return flag;
     }
 
+    //region get Extermal Storage Public Dir (沒用到,已註解)
+    /*
     private File getExtermalStoragePublicDir(String albumName) {
         File file = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         if(file.mkdir()){
@@ -999,7 +1032,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             }
         }
         return new File(file, albumName);
-    }
+    }*/
+    //endregion
+
     //endregion
 
     //region--- put text at center ---
