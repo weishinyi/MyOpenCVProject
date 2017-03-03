@@ -66,9 +66,14 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int screenHeight;
 
     //button
-    private Rect btntlRect; //time line
-    private Rect btnkyRect; //keyboard
-    private Rect btnhwRect; //handwriting
+    private byte modeCode = 0;
+    private int btnWidth = 100;
+    private int btnHeight = 100;
+    private int btnPadding = 10;
+    private int btnThickness = 2;
+    private Rect btntlRect;
+    private Rect btnkyRect;
+    private Rect btnhwRect;
 
     //counters
     private int frameCounter = 0;
@@ -124,9 +129,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                     mOpenCvCameraView.enableView();
 
+                    //get screenCenter
                     screenWidth = mOpenCvCameraView.getWidth();
                     screenHeight = mOpenCvCameraView.getHeight();
                     screenCenter = new Point(screenWidth/2, screenHeight/2);
+
+                    //set btns Rect & center
+                    int x0 = screenWidth-3*btnWidth-btnPadding;
+                    btntlRect = new Rect(x0, btnPadding, btnWidth, btnHeight);
+                    btnkyRect = new Rect(x0+btnWidth, btnPadding, btnWidth, btnHeight);
+                    btnhwRect = new Rect(x0+2*btnWidth, btnPadding, btnWidth, btnHeight);
+
+                    //initialize counter
                     frameCounter = 0; //initialize frame counter
                     break;
                 default:
@@ -182,9 +196,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //set the size of detection object
         setAbsoluteObjectSize(height);
-
-        //get timeline image resources
-        //timeline = getDisplayImage(R.drawable.timeline2,700,100);
     }
 
     @Override
@@ -208,6 +219,23 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         rgbaImg = inputFrame.rgba();
         grayImg = inputFrame.gray();
         Mat rgbaImg2 = inputFrame.rgba().clone();
+
+        //region ------ step0: draw tl/ky/hw btn ------
+        try{
+            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), (modeCode==0)?RECT_COLOR_RED:RECT_COLOR_BLUE, btnThickness);
+            putTextAtCenter(rgbaImg, btntlRect, "TL", (modeCode == 0) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+
+            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), (modeCode == 1) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
+            putTextAtCenter(rgbaImg, btnkyRect, "KY", (modeCode == 1) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+
+            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), (modeCode == 2) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
+            putTextAtCenter(rgbaImg, btnhwRect, "HW", (modeCode == 2) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+
+        }catch (Exception e){
+            Log.e(TAG,"step0: draw tl/ky/hw btn. " + e.getMessage());
+        }
+
+        //endregion
 
         //region ------ step1: arm and palm detection ------
 
@@ -441,7 +469,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             //show displayimg
                             Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
-                            Boolean reflag = SaveImage(rgbaImg);
+                            Boolean reflag = saveImage(rgbaImg);
 
                             Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: "+ reflag.toString() );
                         }
@@ -463,7 +491,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             //show displayimg
                             Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
-                            Boolean reflag = SaveImage(rgbaImg);
+                            Boolean reflag = saveImage(rgbaImg);
 
                             Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
@@ -485,7 +513,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             //show displayimg
                             Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
-                            Boolean reflag = SaveImage(rgbaImg);
+                            Boolean reflag = saveImage(rgbaImg);
 
                             Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
@@ -507,7 +535,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             //show displayimg
                             Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
-                            Boolean reflag = SaveImage(rgbaImg);
+                            Boolean reflag = saveImage(rgbaImg);
                             Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
@@ -913,7 +941,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     //endregion
 
-    private Boolean SaveImage(Mat img)
+    //region--- Take a picture ---
+    private Boolean saveImage(Mat img)
     {
         Boolean flag = false;
         Bitmap bitmapImage = null;
@@ -971,6 +1000,32 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         }
         return new File(file, albumName);
     }
+    //endregion
+
+    //region--- put text at center ---
+    private void putTextAtCenter(Mat img, Rect roi,String text, Scalar color, int fontFace, double fontScale, int thickness)
+    {
+        try{
+            int[] baseline = new int[1];
+            baseline[0] = 0;
+
+            // Calculates the width and height of a text string
+            Size textSize = Imgproc.getTextSize(text, fontFace, fontScale,thickness, baseline);
+
+            // Calculates the center of roi
+            Point center = new Point(roi.tl().x+(roi.width/2), roi.tl().y+(roi.height/2));
+
+            // Calculates the position to put text (Bottom-left corner of the text string)
+            Point org = new Point(center.x-(textSize.width/2), center.y+(textSize.height/2));
+
+            //put text on the roi of img
+            Imgproc.putText(img, text, org, fontFace, fontScale, color, thickness);
+
+        }catch (Exception e){
+            Log.e(TAG, "[putTextAtCenter]: put text ERROR! "+e.getMessage());
+        }
+    }
+    //endregion
 
 //endregion
 
