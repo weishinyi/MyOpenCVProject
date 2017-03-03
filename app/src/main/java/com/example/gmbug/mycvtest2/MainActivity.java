@@ -438,8 +438,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 btnTouchFlag = 2;
             }
 
-            btnTouchFlag=1;
-
             if(btnTouchFlag!=-1){
                 Intent intent = new Intent();
                 switch (btnTouchFlag){
