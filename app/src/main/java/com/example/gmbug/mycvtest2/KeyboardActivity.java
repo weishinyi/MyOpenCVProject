@@ -16,6 +16,7 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
@@ -63,6 +64,10 @@ public class KeyboardActivity extends AppCompatActivity implements CameraBridgeV
     private Rect btntlRect;
     private Rect btnkyRect;
     private Rect btnhwRect;
+
+    //fingertip color detection H,S,V range
+    private Scalar fingertipLower = new Scalar(240, 50, 178);
+    private Scalar fingertipUpper = new Scalar(255, 80, 255);
 
     //counters
     private int frameCounter = 0;
@@ -179,20 +184,17 @@ public class KeyboardActivity extends AppCompatActivity implements CameraBridgeV
 
         //region ------ step0: draw tl/ky/hw btn ------
         try{
-            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), (modeCode == 0) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
-            putTextAtCenter(rgbaImg, btntlRect, "TL", (modeCode == 0) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), RECT_COLOR_BLUE, btnThickness);
+            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), RECT_COLOR_RED, btnThickness);
+            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), RECT_COLOR_BLUE, btnThickness);
 
-            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), (modeCode == 1) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
-            putTextAtCenter(rgbaImg, btnkyRect, "KY", (modeCode == 1) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
-
-            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), (modeCode == 2) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
-            putTextAtCenter(rgbaImg, btnhwRect, "HW", (modeCode == 2) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, btntlRect, "TL", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, btnkyRect, "KY", RECT_COLOR_RED, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, btnhwRect, "HW", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
 
         }catch (Exception e){
             Log.e(TAG,"[ky] step0: draw tl/ky/hw btn. " + e.getMessage());
         }
-
-
         //endregion
 
         //region ------ step1: palm detection ------
@@ -378,11 +380,8 @@ public class KeyboardActivity extends AppCompatActivity implements CameraBridgeV
     private void putTextAtCenter(Mat img, Rect roi,String text, Scalar color, int fontFace, double fontScale, int thickness)
     {
         try{
-            int[] baseline = new int[1];
-            baseline[0] = 0;
-
             // Calculates the width and height of a text string
-            Size textSize = Imgproc.getTextSize(text, fontFace, fontScale,thickness, baseline);
+            Size textSize = Imgproc.getTextSize(text, fontFace, fontScale,thickness, null);
 
             // Calculates the center of roi
             Point center = new Point(roi.tl().x+(roi.width/2), roi.tl().y+(roi.height/2));
@@ -397,6 +396,87 @@ public class KeyboardActivity extends AppCompatActivity implements CameraBridgeV
             Log.e(TAG, "[ky-putTextAtCenter]: put text ERROR! "+e.getMessage());
         }
     }
+    //endregion
+
+    //region --- fingertip detection ---
+    private Rect fingertipDetect(Mat inFrame)
+    {
+        Rect fingertip = null;
+
+        try{
+            //fingertip color detect
+            Mat imgFingertip = fingertipColorDetect(inFrame);
+
+            //find all contours
+            ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+            Mat hierarchy = new Mat();
+            Imgproc.findContours(imgFingertip, contours, hierarchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+
+            //find the largest contour
+            MatOfPoint largestContour = findLargestAreaContour(contours);
+
+            //conditions
+            if(largestContour != null)
+            {
+                Rect rectBound = Imgproc.boundingRect(largestContour); // Get bounding rect of contour
+                // conditions 1:Aspect ratio (h,w) range in (100,100) ~ (30,30)
+                if(rectBound.height>30 && rectBound.width>30  && rectBound.height<100 && rectBound.width<100)
+                {
+                    fingertip = new Rect(rectBound.tl(), rectBound.br());
+                }
+            }
+
+        }catch (Exception e){
+            Log.e(TAG,"[hw-fingertipDetect]: "+e.getMessage());
+        }
+
+        return fingertip;
+    }
+
+    private Mat fingertipColorDetect(Mat rgbImage)
+    {
+        Mat resultImg = new Mat();
+
+        try {
+            Mat hvsImg = new Mat();
+            Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
+            Core.inRange(hvsImg, fingertipLower, fingertipUpper, resultImg);
+
+            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
+            Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
+
+        }catch (Exception e){
+            Log.e(TAG, e.getMessage());
+        }
+
+        return  resultImg;
+    }
+
+    // find the largest area Contour
+    private MatOfPoint findLargestAreaContour(ArrayList<MatOfPoint> contours)
+    {
+        MatOfPoint largestAreaContour = null;
+
+        try {
+            //extract the largest area contour
+            double maxVal = 0;
+            int maxValIdx = 0;
+            for (int contourIdx = 0; contourIdx < contours.size(); contourIdx++) {
+                double contourArea = Imgproc.contourArea(contours.get(contourIdx));
+                if (maxVal < contourArea) {
+                    maxVal = contourArea;
+                    maxValIdx = contourIdx;
+                }
+            }
+            largestAreaContour = new MatOfPoint(contours.get(maxValIdx));
+
+        }catch (Exception e){
+            Log.e(TAG, e.getMessage());
+        }
+
+        return largestAreaContour;
+    }
+
     //endregion
 
     //endregion

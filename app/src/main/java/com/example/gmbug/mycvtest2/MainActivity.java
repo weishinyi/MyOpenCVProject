@@ -43,8 +43,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private String TAG = "MyCvTest2";
 
     private CameraBridgeViewBase mOpenCvCameraView;
-    //private CascadeClassifier cascadeClassifier_palm; //recognize palm to show the keyboard
-    //private int absoluteObjectSize = 0;
 
     //color Scalar (r,g,b)
     private static final Scalar RECT_COLOR_GREEN = new Scalar(0, 255, 0, 255); //green color scalar
@@ -52,13 +50,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private static final Scalar RECT_COLOR_RED = new Scalar(255, 0, 0, 0); // red color scalar
     private static final Scalar RECT_COLOR_BLUE = new Scalar(0, 0 ,255, 0); // blue color scalar
 
-
     //Mat
     private Mat rgbaImg;
-    private Mat grayImg;
-    //private Mat bgImg = null;
-
-    //private Rect fitArm = null;
 
     //screen
     private Point screenCenter;
@@ -66,7 +59,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private int screenHeight;
 
     //button
-    private byte modeCode = 0;
     private int btnWidth = 100;
     private int btnHeight = 100;
     private int btnPadding = 10;
@@ -117,17 +109,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             switch (status)
             {
                 case LoaderCallbackInterface.SUCCESS:
-                    Log.i(TAG, "OpenCV loaded successfully!");
-
-                    //region initialize CascadeClassifier_palm (註解了)
-                    /*
-                    try{
-                        cascadeClassifier_palm = generalizationInitializeCascadeClassifier(R.raw.hand_cascade,"hand_cascade.xml");
-                        Log.i(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize success.");
-                    }catch(Exception e){
-                        Log.e(TAG, "BaseLoaderCallback: cascadeClassifier_object initialize fail.");
-                    }*/
-                    //endregion
+                    Log.i(TAG, "[tl] OpenCV loaded successfully!");
 
                     mOpenCvCameraView.enableView();
 
@@ -154,7 +136,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "onCreate!");
+        Log.i(TAG, "[tl] onCreate!");
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -166,18 +148,20 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
             mOpenCvCameraView.setCvCameraViewListener(MainActivity.this);
         }
+
+
     }
 
     @Override
     protected void onResume() {
-        Log.i(TAG, "onResume!");
+        Log.i(TAG, "[tl] onResume!");
         super.onResume();
         OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, myLoaderCallback);
     }
 
     @Override
     public void onPause() {
-        Log.i(TAG, "onPause!");
+        Log.i(TAG, "[tl] onPause!");
         super.onPause();
         if(mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
@@ -186,7 +170,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public void onDestroy()
     {
-        Log.i(TAG, "onDestroy!");
+        Log.i(TAG, "[tl] onDestroy!");
         super.onDestroy();
         if(mOpenCvCameraView!=null)
             mOpenCvCameraView.disableView();
@@ -194,15 +178,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     @Override
     public void onCameraViewStarted(int width, int height) {
-        Log.i(TAG, "onCameraViewStarted!");
-
-        //set the size of detection object
-        //setAbsoluteObjectSize(height);
+        Log.i(TAG, "[tl] onCameraViewStarted!");
     }
 
     @Override
     public void onCameraViewStopped() {
-        Log.i(TAG, "onCameraViewStopped!");
+        Log.i(TAG, "[tl] onCameraViewStopped!");
     }
 
     //endregion
@@ -216,147 +197,45 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
      * */
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        Log.i(TAG, "onCameraFrame!");
+        Log.i(TAG, "[tl] onCameraFrame!");
 
         rgbaImg = inputFrame.rgba();
-        grayImg = inputFrame.gray();
         Mat rgbaImg2 = inputFrame.rgba().clone();
 
         //region ------ step0: draw tl/ky/hw btn ------
         try{
-            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), (modeCode==0)?RECT_COLOR_RED:RECT_COLOR_BLUE, btnThickness);
-            putTextAtCenter(rgbaImg, btntlRect, "TL", (modeCode == 0) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), RECT_COLOR_RED, btnThickness);
+            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), RECT_COLOR_BLUE, btnThickness);
+            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), RECT_COLOR_BLUE, btnThickness);
 
-            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), (modeCode == 1) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
-            putTextAtCenter(rgbaImg, btnkyRect, "KY", (modeCode == 1) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
-
-            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), (modeCode == 2) ? RECT_COLOR_RED : RECT_COLOR_BLUE, btnThickness);
-            putTextAtCenter(rgbaImg, btnhwRect, "HW", (modeCode == 2) ? RECT_COLOR_RED : RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, btntlRect, "TL", RECT_COLOR_RED, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, btnkyRect, "KY", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, btnhwRect, "HW", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
 
         }catch (Exception e){
-            Log.e(TAG,"step0: draw tl/ky/hw btn. " + e.getMessage());
+            Log.e(TAG,"[tl] step0: draw tl/ky/hw btn. " + e.getMessage());
         }
 
         //endregion
 
-        //region ------ step1: arm and palm detection ------
-
-        //region --- part1 palm detection (註解了)
-        Boolean currentPalmFlag = false;
-        /*
-        MatOfRect palms = detectObjects();
-        Rect[] palmsArray = palms.toArray();
-        for (int i = 0; i <palmsArray.length; i++) {
-            Imgproc.rectangle(rgbaImg, palmsArray[i].tl(), palmsArray[i].br(), RECT_COLOR_RED, 3);
-        }
-
-        //set palmFlags
-        if(palmsArray.length>0){
-            currentPalmFlag = true;
-        }
-        if(palmFlags.size() < 3)
-        {
-            palmFlags.add(currentPalmFlag);
-        }else{
-            palmFlags.remove(0);
-            palmFlags.add(currentPalmFlag);
-        }
-
-        //set bgImg
-        if(currentPalmFlag && bgImg==null){
-            bgImg = inputFrame.rgba().clone();
-            Imgproc.putText(rgbaImg,"get gbImg!!", screenCenter, Core.FONT_HERSHEY_SIMPLEX, 2.6f, RECT_COLOR_RED,3);
-        }
-        if(!currentPalmFlag && bgImg!=null){
-            bgImg = null;
-            Imgproc.putText(rgbaImg,"clear gbImg!!", screenCenter, Core.FONT_HERSHEY_SIMPLEX, 2.6f, RECT_COLOR_GREEN,3);
-        }
-        */
-        //endregion
-
-        //region --- part2 arm detection
-        //region 未封裝的arm detection流程(已註解)
-        /*
-        // skin color detection
-        Mat skinImg = skinColorDetect(rgbaImg);
-
-        //edge detection (find the Largest Area Contour that maybe Arm)
-        ArrayList<MatOfPoint> largestContour = findLargestAreaContour(skinImg);
-
-        if(!largestContour.isEmpty())
-        {
-            //Imgproc.drawContours(rgbaImg, largestContour, 0, RECT_COLOR_GREEN, 5); //draw Contour
-            Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
-            //Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR_GREEN, 3);
-
-            // conditions 1:Aspect ratio ( h > 0.5*screenHeight &&  w > 0.75*screenWidth && w/h > 1.5)
-
-            if(rectBound.height > 0.5*screenHeight && rectBound.width > 0.75*screenWidth && rectBound.width/ rectBound.height > 1.5)
-            {
-                Imgproc.rectangle(rgbaImg, new Point(rectBound.x, rectBound.y), new Point(rectBound.x + rectBound.width, rectBound.y + rectBound.height), RECT_COLOR_GREEN, 3);
-            }
-        }
-        */
-        //endregion
+        //region ------ step1: arm detection ------
         Boolean currentArmFlag = false;
         Rect armRect = null;
-        if(!currentPalmFlag) {
-            armRect = armDetect(rgbaImg);
-            if (armRect != null) {
-                Imgproc.rectangle(rgbaImg, new Point(armRect.x, armRect.y), new Point(armRect.x + armRect.width, armRect.y + armRect.height), RECT_COLOR_GREEN, 3);
-                currentArmFlag = true;
-            }
-            //set armFlags
-            if (armFlagls.size() < 3) {
-                armFlagls.add(currentArmFlag);
-            } else {
-                armFlagls.remove(0);
-                armFlagls.add(currentArmFlag);
-            }
+        armRect = armDetect(rgbaImg);
+        if (armRect != null) {
+            Imgproc.rectangle(rgbaImg, new Point(armRect.x, armRect.y), new Point(armRect.x + armRect.width, armRect.y + armRect.height), RECT_COLOR_GREEN, 3);
+            currentArmFlag = true;
         }
-        //endregion
-
+        //set armFlags
+        if (armFlagls.size() < 3) {
+            armFlagls.add(currentArmFlag);
+        } else {
+            armFlagls.remove(0);
+            armFlagls.add(currentArmFlag);
+        }
         //endregion
 
         //region ------ step2: create the keyboard and timeline & step3: locate the trigger point ------
-
-        //region --- part1 keyboard (註解了)
-        /*
-        if(currentPalmFlag)
-        {
-            //get keyboard image
-            Mat keyboardImg =  getDisplayImage(R.drawable.numberkeypad2,200,300);
-            if(!keyboardImg.empty())
-            {
-                //region part1: show keyboardImg
-                //set the coordinate to show keyboardImg
-                Rect palmRect = new Rect(palmsArray[0].tl(),palmsArray[0].br());
-                Point palmC = new Point(palmRect.x+(palmRect.width/2), palmRect.y+(palmRect.height/2));
-                int x = (int) palmC.x-100;
-                int y = (int) palmC.y-150;
-
-                //set the para of addWeighted function
-                //p.s. addWeighted function: output = src1*alpha + src2*beta + gamma;
-                double alpha = 0.8;
-                double beta = 1;
-                double gamma = 1;
-
-                //show keyboardImg
-                Rect keyboardImg_roi = new Rect(x, y, keyboardImg.width(), keyboardImg.height());
-                Core.addWeighted(rgbaImg.submat(keyboardImg_roi), alpha, keyboardImg, beta, gamma, rgbaImg.submat(keyboardImg_roi));
-
-                Log.i(TAG, "[onCameraFrame]: show keyboardImg success!");
-                //endregion
-
-                //region part2: local the trigger point
-                //...
-                //endregion
-            }
-        }
-        */
-        //endregion
-
-        //region --- part2 timeline
         if(currentArmFlag)
         {
             //get timeline image
@@ -379,7 +258,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 Rect timelineImg_roi = new Rect(x, y, timelineImg.width(), timelineImg.height());
                 Core.addWeighted(rgbaImg.submat(timelineImg_roi), alpha, timelineImg, beta, gamma, rgbaImg.submat(timelineImg_roi));
 
-                Log.i(TAG, "[onCameraFrame]: show timelineImg success!");
+                Log.i(TAG, "[tl-onCameraFrame]: show timelineImg success!");
                 //endregion
 
                 //region part2: local the trigger point
@@ -402,9 +281,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 //endregion
             }
         }
-
-        //endregion
-
         //endregion
 
         //region ------ step4: fingertip detection ------
@@ -424,47 +300,22 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         //region ------ step5: touch detection ------
 
-        //if palm, arm, fingertip exist then do touch detection
+        //if fingertip exist then do touch detection
         if(fingertipRect!=null)
         {
             //region --- touch btn ---
             Point fingertipCenter = new Point(fingertipRect.tl().x+(fingertipRect.width/2) , fingertipRect.tl().y+(fingertipRect.height/2));
-            byte btnTouchFlag = -1;
-            if(btntlRect.contains(fingertipCenter)){
-                btnTouchFlag = 0;
-            }else if(btnkyRect.contains(fingertipCenter)){
-                btnTouchFlag = 1;
-            }else if(btnhwRect.contains(fingertipCenter)){
-                btnTouchFlag = 2;
-            }
-
-            if(btnTouchFlag!=-1){
+            if(btnkyRect.contains(fingertipCenter)){
                 Intent intent = new Intent();
-                switch (btnTouchFlag){
-                    case 0:
-                        break;
-                    case 1:
-                        intent.setClass(MainActivity.this, KeyboardActivity.class);
-                        startActivity(intent);
-                        finish();
-                        break;
-                    case 2:
-                        intent.setClass(MainActivity.this, HandwriteActivity.class);
-                        startActivity(intent);
-                        finish();
-                        break;
-                    default:
-                        break;
-                }
+                intent.setClass(MainActivity.this, KeyboardActivity.class);
+                startActivity(intent);
+                finish();
+            }else if(btnhwRect.contains(fingertipCenter)){
+                Intent intent = new Intent();
+                intent.setClass(MainActivity.this, HandwriteActivity.class);
+                startActivity(intent);
+                finish();
             }
-            //endregion
-
-            //region --- palm is exist ---
-            /*
-            if(currentPalmFlag)
-            {
-             //if touch the keyboard trigger point then show result
-            }*/
             //endregion
 
             //region --- arm is exist ---
@@ -501,7 +352,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
 
-                            Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: "+ reflag.toString() );
+                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: "+ reflag.toString() );
                         }
                         break;
                     case 1:
@@ -523,7 +374,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
 
-                            Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
+                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
                     case 2:
@@ -545,7 +396,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
 
-                            Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
+                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
                     case 3:
@@ -566,7 +417,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
-                            Log.i(TAG, "[onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
+                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
                 }
@@ -587,159 +438,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         frameCounter++; //frameCounter = frameCounter + 1;
         preFrameCounter++;
         prePreFrameCounter++;
-        Log.e(TAG, "[onCameraFrame]: frameCounter="+frameCounter+".");
+        Log.e(TAG, "[tl-onCameraFrame]: frameCounter="+frameCounter+".");
 
         return rgbaImg;
     }
 
 //region ---------------------- functions ----------------------------
-
-    //region --- CascadeClassifier about (註解了) ---
-    // Generalization Initialize Cascade Classifier
-    /*
-    private CascadeClassifier generalizationInitializeCascadeClassifier(int xmlfileId, String xmlfileName)
-    {
-        CascadeClassifier cascadeClassifier = null;
-
-        try{
-            // Copy the resource into a temp file so OpenCV can load it
-            InputStream is = getResources().openRawResource(xmlfileId);
-            File cascadeDir = getDir("cascade", Context.MODE_PRIVATE);
-            File mCascadeFile = new File(cascadeDir, xmlfileName);
-            FileOutputStream os = new FileOutputStream(mCascadeFile);
-
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while((bytesRead=is.read(buffer)) != -1)
-            {
-                os.write(buffer, 0, bytesRead);
-            }
-            is.close();
-            os.close();
-
-            //Load the CascadeClassifier
-            cascadeClassifier = new CascadeClassifier(mCascadeFile.getAbsolutePath());
-            if(cascadeClassifier.empty()){
-                Log.i(TAG,"[Initialize Cascade Classifier]: Failed to load cascade classifier");
-                cascadeClassifier = null;
-            }else{
-                Log.i(TAG,"[Initialize Cascade Classifier]: Loaded cascade classifier from " + mCascadeFile.getAbsolutePath());
-            }
-
-        }catch (Exception e) {
-            Log.e(TAG, e.getMessage());
-        }
-
-        return cascadeClassifier;
-    }*/
-
-    // set the size of detection object
-    /*
-    private void setAbsoluteObjectSize(int height)
-    {
-        // The faces will be a 20% of the height of the screen
-        absoluteObjectSize = (int)(height *0.2);
-    }*/
-
-    // using classifier detect objects then return MatOfRect
-    /*
-    private  MatOfRect detectObjects()
-    {
-        MatOfRect objects = new MatOfRect();
-
-        try{
-            if(cascadeClassifier_palm != null)
-            {
-                cascadeClassifier_palm.detectMultiScale(grayImg,objects,1.1,2,2, new Size(absoluteObjectSize,absoluteObjectSize),new Size());
-            }
-
-            //Log.i(TAG, "[detectObjects]: using classifier to detect palm success!");
-        }catch(Exception e){
-            Log.e(TAG, "[detectObjects]: using classifier to detect palm ERROR!");
-        }
-
-        return objects;
-    }*/
-
-    //endregion
-
-    //region --- choose Fit Object (註解了) ---
-    /*
-    private Rect chooseFitObject(MatOfRect objects)
-    {
-        Rect fitObject = null;
-        Rect[] objectsArray = null;
-
-        //get Rect[] objectsArray
-        try{
-            objectsArray = objects.toArray();
-
-            Log.i(TAG,"[chooseFitObject]: Get Rect[] objectsArray success!!");
-        }catch(Exception e){
-            Log.e(TAG,"[chooseFitObject]: Get Rect[] objectsArray ERROR!");
-        }
-
-        //choose fitObject from objectsArray
-        try{
-            if(objectsArray!=null){
-                for(Rect oneArm : objectsArray)
-                {
-                    if(fitObject==null){
-                        fitObject = oneArm;
-                    }else {
-                        fitObject = compareTwoRect(fitObject,oneArm);
-                    }
-                }
-            }
-
-            Log.i(TAG, "[chooseFitObject]: Choose fitObject from objectsArray success!");
-        }catch(Exception e){
-            Log.e(TAG, "[chooseFitObject]: Choose fitObject from objectsArray ERROR!");
-        }
-
-        return fitObject;
-    }*/
-
-    /*
-    private Rect compareTwoRect(Rect r1,Rect r2)
-    {
-        Point center1=null,
-              center2=null;
-        double distance1=0,
-               distance2=0;
-
-        //get center of r1 & r2
-        try{
-            center1 = new Point( r1.tl().x+(r1.width/2),  r1.tl().y+(r1.height/2));
-            center2 = new Point( r2.tl().x+(r2.width/2),  r2.tl().y+(r2.height/2));
-
-            Log.i(TAG,"[compareTwoRect]: Get Point center1,center2 success!");
-        }catch(Exception e){
-            Log.e(TAG,"[compareTwoRect]: Get Point center1,center2 ERROR!");
-        }
-
-        //compute the distance between center1/center2 and screenCenter
-        try{
-            double deltaX1 = Math.abs(center1.x-screenCenter.x);
-            double deltaY1 = Math.abs(center1.y-screenCenter.y);
-            double deltaX2 = Math.abs(center2.x-screenCenter.x);
-            double deltaY2 = Math.abs(center2.y - screenCenter.y);
-            distance1 = Math.sqrt(Math.pow(deltaX1, 2) + Math.pow(deltaY1, 2));
-            distance2 = Math.sqrt(Math.pow(deltaX2,2)+Math.pow(deltaY2,2));
-
-            Log.i(TAG,"[compareTwoRect]: Compute the distance success!");
-        }catch(Exception e) {
-            Log.e(TAG, "[compareTwoRect]: Compute the distance ERROR!");
-        }
-
-        //choose return
-        if(distance1<distance2 ){
-            return r2;
-        }else {
-            return r1;
-        }
-    }*/
-    //endregion
 
     //region --- arm detection ---
     private Rect armDetect(Mat inFrame)
@@ -767,54 +471,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         return arm;
     }
 
-    //region 找出arm輪廓質心(沒用到,已註解)
-    /*
-    private Point fineArmCentroid(Mat inFrame)
-    {
-        Point Centroid = null;
-
-        //get arm contour
-        ArrayList<MatOfPoint> contours = findArmContour(inFrame);
-
-        //find arm centroid
-        if(contours!= null)
-        {
-            MatOfPoint contour = contours.get(0);
-            Moments moments = Imgproc.moments(contour, false);
-            Centroid = new Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
-        }
-
-        return Centroid;
-    }*/
-    //endregion
-
-    //region find Arm Contour(with conditions filter) (註解了)
-    /*
-    private ArrayList<MatOfPoint> findArmContour(Mat inFrame)
-    {
-        ArrayList<MatOfPoint> contour = null;
-
-        //skin detect
-        Mat imgSkin = skinColorDetect(inFrame);
-
-        //find the contour of largest area
-        ArrayList<MatOfPoint> largestContour = findLargestAreaContour(imgSkin);
-
-        // conditions 1:Aspect ratio
-        if(!largestContour.isEmpty())
-        {
-            Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
-
-            // conditions 1:Aspect ratio ( h > 0.5*screenHight &&  w > 0.75*screenWidth && w/h > 1.5)
-            if(rectBound.height > 0.5*screenHeight && rectBound.width > 0.75*screenWidth && rectBound.width/ rectBound.height > 1.5)
-            {
-                contour = largestContour;
-            }
-        }
-
-        return contour;
-    }*/
-    //endregion
 
     // skin color detection
     private Mat skinColorDetect(Mat rgbImage)
@@ -1039,11 +695,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     private void putTextAtCenter(Mat img, Rect roi,String text, Scalar color, int fontFace, double fontScale, int thickness)
     {
         try{
-            int[] baseline = new int[1];
-            baseline[0] = 0;
-
             // Calculates the width and height of a text string
-            Size textSize = Imgproc.getTextSize(text, fontFace, fontScale,thickness, baseline);
+            Size textSize = Imgproc.getTextSize(text, fontFace, fontScale,thickness, null);
 
             // Calculates the center of roi
             Point center = new Point(roi.tl().x+(roi.width/2), roi.tl().y+(roi.height/2));
@@ -1055,7 +708,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Imgproc.putText(img, text, org, fontFace, fontScale, color, thickness);
 
         }catch (Exception e){
-            Log.e(TAG, "[putTextAtCenter]: put text ERROR! "+e.getMessage());
+            Log.e(TAG, "[tl-putTextAtCenter]: put text ERROR! "+e.getMessage());
         }
     }
     //endregion
