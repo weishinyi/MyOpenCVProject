@@ -1,10 +1,14 @@
 package com.example.gmbug.mycvtest2;
 
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.WindowManager;
+
+import com.example.gmbug.mycvtest2.entity.GlobalVariable;
+import com.example.gmbug.mycvtest2.entity.util;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
@@ -21,37 +25,15 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class HandwriteActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     //region ---------------------- variables ----------------------------
-    private String TAG = "MyCvTest2";
-
     private CameraBridgeViewBase mOpenCvCameraView_hw;
 
-    Mat rgbaImg;
-    Mat grayImg;
-
-    //color Scalar (r,g,b)
-    private static final Scalar RECT_COLOR_GREEN = new Scalar(0, 255, 0, 255); //green color scalar
-    private static final Scalar RECT_COLOR_PURPLE = new Scalar(255, 0, 255, 0); //purple color scalar
-    private static final Scalar RECT_COLOR_RED = new Scalar(255, 0, 0, 0); // red color scalar
-    private static final Scalar RECT_COLOR_BLUE = new Scalar(0, 0 ,255, 0); // blue color scalar
-
-    //screen
-    private Point screenCenter;
-    private int screenWidth;
-    private int screenHeight;
-
-    //button
-    private byte modeCode = 2;
-    private int btnWidth = 100;
-    private int btnHeight = 100;
-    private int btnPadding = 10;
-    private int btnThickness = 2;
-    private Rect btntlRect;
-    private Rect btnkyRect;
-    private Rect btnhwRect;
+    private Mat rgbaImg;
+    private Mat grayImg;
 
     //handwrite area
     private Rect handwriteArea;
@@ -60,10 +42,10 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
 
     //counters
     private int frameCounter = 0;
+    private int nonCounter = 0;
 
-    //fingertip color detection H,S,V range
-    private Scalar fingertipLower = new Scalar(240, 50, 178);
-    private Scalar fingertipUpper = new Scalar(255, 80, 255);
+    //trace list
+    private List<Point> traceList = new ArrayList<Point>();
 
     //endregion
 
@@ -74,23 +56,13 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
         public void onManagerConnected(int status) {
             switch (status){
                 case  LoaderCallbackInterface.SUCCESS:
-                    Log.i(TAG, "[hw] OpenCV loaded successfully!");
+                    Log.i(util.TAG, "[hw] OpenCV loaded successfully!");
 
                     mOpenCvCameraView_hw.enableView();
 
-                    //get screenCenter
-                    screenWidth = mOpenCvCameraView_hw.getWidth();
-                    screenHeight = mOpenCvCameraView_hw.getHeight();
-                    screenCenter = new Point(screenWidth/2, screenHeight/2);
-
-                    //set btns Rect & center
-                    int x0 = screenWidth-3*btnWidth-btnPadding;
-                    btntlRect = new Rect(x0, btnPadding, btnWidth, btnHeight);
-                    btnkyRect = new Rect(x0+btnWidth, btnPadding, btnWidth, btnHeight);
-                    btnhwRect = new Rect(x0+2*btnWidth, btnPadding, btnWidth, btnHeight);
-
                     //set handwriteArea Rect
-                    handwriteArea = new Rect((int)(screenCenter.x-(handwriteAreaWidth/2)), (int)(screenCenter.y-(handwriteAreaWidth/2)), handwriteAreaWidth, handwriteAreaWidth);
+                    GlobalVariable globalValue = ((GlobalVariable)getApplicationContext());
+                    handwriteArea = new Rect((int)(globalValue.getScreenCenter().x-(handwriteAreaWidth/2)), (int)(globalValue.getScreenCenter().y-(handwriteAreaWidth/2)), handwriteAreaWidth, handwriteAreaWidth);
 
                     //initialize counter
                     frameCounter = 0;
@@ -104,7 +76,7 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "[hw] onCreate!");
+        Log.i(util.TAG, "[hw] onCreate!");
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -120,14 +92,14 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
 
     @Override
     protected void onResume() {
-        Log.i(TAG, "[hw] onResume!");
+        Log.i(util.TAG, "[hw] onResume!");
         super.onResume();
         OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, myBaseLoaderCallback_hw);
     }
 
     @Override
     protected void onPause() {
-        Log.i(TAG, "[hw] onPause!");
+        Log.i(util.TAG, "[hw] onPause!");
         super.onPause();
         if(mOpenCvCameraView_hw!=null)
             mOpenCvCameraView_hw.disableView();
@@ -135,7 +107,7 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
 
     @Override
     protected void onDestroy() {
-        Log.i(TAG, "[hw] onDestroy!");
+        Log.i(util.TAG, "[hw] onDestroy!");
         super.onDestroy();
         if(mOpenCvCameraView_hw!=null)
             mOpenCvCameraView_hw.disableView();
@@ -143,12 +115,12 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
 
     @Override
     public void onCameraViewStarted(int width, int height) {
-        Log.i(TAG, "[hw] onCameraViewStarted!");
+        Log.i(util.TAG, "[hw] onCameraViewStarted!");
     }
 
     @Override
     public void onCameraViewStopped() {
-        Log.i(TAG, "[hw] onCameraViewStopped!");
+        Log.i(util.TAG, "[hw] onCameraViewStopped!");
     }
 
     //endregion
@@ -156,49 +128,99 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
     //---------------------- main function ----------------------------
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+        Log.i(util.TAG, "[hw]onCameraFrame!");
 
-        Log.i(TAG, "[hw]onCameraFrame!");
+        GlobalVariable globalVariable = ((GlobalVariable)getApplicationContext());
 
         rgbaImg = inputFrame.rgba();
         grayImg = inputFrame.gray();
 
         //region ------ step0: draw tl/ky/hw btn ------
         try{
-            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), RECT_COLOR_BLUE, btnThickness);
-            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), RECT_COLOR_BLUE, btnThickness);
-            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), RECT_COLOR_RED, btnThickness);
+            Imgproc.rectangle(rgbaImg, globalVariable.getBtntlRect().tl(), globalVariable.getBtntlRect().br(), util.RECT_COLOR_BLUE, globalVariable.getBtnThickness());
+            Imgproc.rectangle(rgbaImg, globalVariable.getBtnkyRect().tl(), globalVariable.getBtnkyRect().br(), util.RECT_COLOR_BLUE, globalVariable.getBtnThickness());
+            Imgproc.rectangle(rgbaImg, globalVariable.getBtnhwRect().tl(), globalVariable.getBtnhwRect().br(), util.RECT_COLOR_RED, globalVariable.getBtnThickness());
 
-            putTextAtCenter(rgbaImg, btntlRect, "TL", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
-            putTextAtCenter(rgbaImg, btnkyRect, "KY", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
-            putTextAtCenter(rgbaImg, btnhwRect, "HW", RECT_COLOR_RED, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, globalVariable.getBtntlRect(), "TL", util.RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, globalVariable.getBtnThickness());
+            putTextAtCenter(rgbaImg, globalVariable.getBtnkyRect(), "KY", util.RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, globalVariable.getBtnThickness());
+            putTextAtCenter(rgbaImg, globalVariable.getBtnhwRect(), "HW", util.RECT_COLOR_RED, Core.FONT_HERSHEY_DUPLEX, 2.0f, globalVariable.getBtnThickness());
 
         }catch (Exception e){
-            Log.e(TAG,"[hw] step0: draw tl/ky/hw btn. " + e.getMessage());
+            Log.e(util.TAG,"[hw] step0: draw tl/ky/hw btn. " + e.getMessage());
         }
-
 
         //endregion
 
         //region ------ step1: draw the handwrite Area ------
         try{
-            Imgproc.rectangle(rgbaImg, handwriteArea.tl(), handwriteArea.br(), RECT_COLOR_GREEN, handwriteAreaThickness);
+            Imgproc.rectangle(rgbaImg, handwriteArea.tl(), handwriteArea.br(), util.RECT_COLOR_GREEN, handwriteAreaThickness);
         }catch (Exception e){
-            Log.e(TAG, "[hw] step1: draw the handwrite Area. " + e.getMessage());
+            Log.e(util.TAG, "[hw] step1: draw the handwrite Area. " + e.getMessage());
         }
 
         //endregion
 
         //region ------ step2: fingertip detection ------
         Rect fingertipRect = fingertipDetect(rgbaImg);
+        Point center = null;
         if(fingertipRect != null)
         {
-            Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), RECT_COLOR_PURPLE, 5);
+            //show the rectangle surrounding fingertip
+            Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), util.RECT_COLOR_PURPLE, 5);
+
+            //show the center of fingertip
+            center = new Point(fingertipRect.tl().x+(fingertipRect.width/2) , fingertipRect.tl().y+(fingertipRect.height/2));
+            Imgproc.circle(rgbaImg, center,2, util.RECT_COLOR_BLUE,-1);
+            //String str = "(" + center.x + "," + center.y + ")";
+            //Imgproc.putText(rgbaImg, str, center, Core.FONT_HERSHEY_SIMPLEX, 2.6f, RECT_COLOR_BLUE, 3);
         }
 
         //endregion
 
         //region ------ step3: touch detection ------
+        if(fingertipRect != null)
+        {
+            Point fingertipCenter = new Point(fingertipRect.tl().x+(fingertipRect.width/2) , fingertipRect.tl().y+(fingertipRect.height/2));
+            if(globalVariable.getBtntlRect().contains(fingertipCenter)){
+                Intent intent = new Intent();
+                intent.setClass(HandwriteActivity.this, MainActivity.class);
+                startActivity(intent);
+                finish();
+            }else if(globalVariable.getBtnkyRect().contains(fingertipCenter)){
+                Intent intent = new Intent();
+                intent.setClass(HandwriteActivity.this, KeyboardActivity.class);
+                startActivity(intent);
+                finish();
+            }
+        }
         //endregion
+
+        //region --- step4: trace the fingertip ---
+        if(fingertipRect != null)
+        {
+            if(handwriteArea.contains(center))
+            {
+                traceList.add(center);
+            }
+        } else {
+            nonCounter++;
+            if(nonCounter==10)
+            {
+                nonCounter = 0;
+                traceList = new ArrayList<Point>();
+            }
+        }
+
+        //show the trajectory
+        if(traceList.size()>1)
+        {
+            for(int i=1; i<traceList.size(); i++)
+            {
+                Imgproc.line(rgbaImg, traceList.get(i), traceList.get(i-1), util.RECT_COLOR_BLUE, 3);
+            }
+        }
+        //endregion
+
 
         return rgbaImg;
     }
@@ -222,7 +244,7 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
             Imgproc.putText(img, text, org, fontFace, fontScale, color, thickness);
 
         }catch (Exception e){
-            Log.e(TAG, "[hw-putTextAtCenter]: put text ERROR! "+e.getMessage());
+            Log.e(util.TAG, "[hw-putTextAtCenter]: put text ERROR! "+e.getMessage());
         }
     }
     //endregion
@@ -248,15 +270,15 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
             if(largestContour != null)
             {
                 Rect rectBound = Imgproc.boundingRect(largestContour); // Get bounding rect of contour
-                // conditions 1:Aspect ratio (h,w) range in (100,100) ~ (30,30)
-                if(rectBound.height>30 && rectBound.width>30  && rectBound.height<100 && rectBound.width<100)
+                // conditions 1:Aspect ratio (h,w) range in (100,100) ~ (10,10)
+                if(rectBound.height>10 && rectBound.width>10  && rectBound.height<100 && rectBound.width<100)
                 {
                     fingertip = new Rect(rectBound.tl(), rectBound.br());
                 }
             }
 
         }catch (Exception e){
-            Log.e(TAG,"[hw-fingertipDetect]: "+e.getMessage());
+            Log.e(util.TAG,"[hw-fingertipDetect]: "+e.getMessage());
         }
 
         return fingertip;
@@ -269,13 +291,13 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
         try {
             Mat hvsImg = new Mat();
             Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
-            Core.inRange(hvsImg, fingertipLower, fingertipUpper, resultImg);
+            Core.inRange(hvsImg, util.fingertipLower, util.fingertipUpper, resultImg);
 
             Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
             Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
 
         }catch (Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }
 
         return  resultImg;
@@ -300,7 +322,7 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
             largestAreaContour = new MatOfPoint(contours.get(maxValIdx));
 
         }catch (Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }
 
         return largestAreaContour;

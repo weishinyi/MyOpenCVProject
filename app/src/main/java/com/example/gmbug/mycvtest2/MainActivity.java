@@ -11,6 +11,9 @@ import android.util.Log;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 
+import com.example.gmbug.mycvtest2.entity.GlobalVariable;
+import com.example.gmbug.mycvtest2.entity.util;
+
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
@@ -40,61 +43,19 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
 
     //region ---------------------- variables ----------------------------
-    private String TAG = "MyCvTest2";
-
     private CameraBridgeViewBase mOpenCvCameraView;
-
-    //color Scalar (r,g,b)
-    private static final Scalar RECT_COLOR_GREEN = new Scalar(0, 255, 0, 255); //green color scalar
-    private static final Scalar RECT_COLOR_PURPLE = new Scalar(255, 0, 255, 0); //purple color scalar
-    private static final Scalar RECT_COLOR_RED = new Scalar(255, 0, 0, 0); // red color scalar
-    private static final Scalar RECT_COLOR_BLUE = new Scalar(0, 0 ,255, 0); // blue color scalar
 
     //Mat
     private Mat rgbaImg;
 
-    //screen
-    private Point screenCenter;
-    private int screenWidth;
-    private int screenHeight;
-
-    //button
-    private int btnWidth = 100;
-    private int btnHeight = 100;
-    private int btnPadding = 10;
-    private int btnThickness = 2;
-    private Rect btntlRect;
-    private Rect btnkyRect;
-    private Rect btnhwRect;
-
     //counters
     private int frameCounter = 0;
-    private int preFrameCounter = -1;
-    private int prePreFrameCounter = -2;
 
     //flags
     //ex: List<Boolean> list = ArrayList<Boolean> ();
-    private List<Boolean> armFlagls = new ArrayList<Boolean>();
-    //private List<Boolean> palmFlags = new ArrayList<Boolean>();
-
-    //skin detection  H,S,V range
-    /** maybe use
-     *  double scaleSatLower = 0.28;
-        double scaleSatUpper = 0.68;
-
-        double scaleSatLower = 0.18; // maybe better
-        double scaleSatLower = 0.08; // maybe too much
-        double scaleSatUpper = 0.78;
-     * */
-    private Scalar skinLower = new Scalar(0, 0.18*255, 0);
-    private Scalar skinUpper = new Scalar(25, 0.68*255, 255);
-
-    //fingertip color detection H,S,V range
-    private Scalar fingertipLower = new Scalar(240, 50, 178);
-    private Scalar fingertipUpper = new Scalar(255, 80, 255);
+    //private List<Boolean> armFlagls = new ArrayList<Boolean>();
 
     //trigger point array
-    //Point[] kyTriggerPointArray = null;
     Point[] tlTriggerPointArray = null;
 
     //endregion
@@ -109,22 +70,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             switch (status)
             {
                 case LoaderCallbackInterface.SUCCESS:
-                    Log.i(TAG, "[tl] OpenCV loaded successfully!");
-
+                    Log.i(util.TAG, "[tl] OpenCV loaded successfully!");
                     mOpenCvCameraView.enableView();
-
-                    //get screenCenter
-                    screenWidth = mOpenCvCameraView.getWidth();
-                    screenHeight = mOpenCvCameraView.getHeight();
-                    screenCenter = new Point(screenWidth/2, screenHeight/2);
-
-                    //set btns Rect & center
-                    int x0 = screenWidth-3*btnWidth-btnPadding;
-                    btntlRect = new Rect(x0, btnPadding, btnWidth, btnHeight);
-                    btnkyRect = new Rect(x0+btnWidth, btnPadding, btnWidth, btnHeight);
-                    btnhwRect = new Rect(x0+2*btnWidth, btnPadding, btnWidth, btnHeight);
-
-                    //initialize counter
+                    initGlobalVariable();
                     frameCounter = 0;
                     break;
                 default:
@@ -136,7 +84,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "[tl] onCreate!");
+        Log.i(util.TAG, "[tl] onCreate!");
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -148,20 +96,18 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
             mOpenCvCameraView.setCvCameraViewListener(MainActivity.this);
         }
-
-
     }
 
     @Override
     protected void onResume() {
-        Log.i(TAG, "[tl] onResume!");
+        Log.i(util.TAG, "[tl] onResume!");
         super.onResume();
         OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, myLoaderCallback);
     }
 
     @Override
     public void onPause() {
-        Log.i(TAG, "[tl] onPause!");
+        Log.i(util.TAG, "[tl] onPause!");
         super.onPause();
         if(mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
@@ -170,7 +116,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     @Override
     public void onDestroy()
     {
-        Log.i(TAG, "[tl] onDestroy!");
+        Log.i(util.TAG, "[tl] onDestroy!");
         super.onDestroy();
         if(mOpenCvCameraView!=null)
             mOpenCvCameraView.disableView();
@@ -178,12 +124,13 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     @Override
     public void onCameraViewStarted(int width, int height) {
-        Log.i(TAG, "[tl] onCameraViewStarted!");
+        Log.i(util.TAG, "[tl] onCameraViewStarted!");
     }
 
     @Override
     public void onCameraViewStopped() {
-        Log.i(TAG, "[tl] onCameraViewStopped!");
+        Log.i(util.TAG, "[tl] onCameraViewStopped!");
+        rgbaImg.release();
     }
 
     //endregion
@@ -197,23 +144,26 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
      * */
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        Log.i(TAG, "[tl] onCameraFrame!");
+        Log.i(util.TAG, "[tl] onCameraFrame!");
+
+        GlobalVariable globalVariable = ((GlobalVariable)getApplicationContext());
 
         rgbaImg = inputFrame.rgba();
         Mat rgbaImg2 = inputFrame.rgba().clone();
 
         //region ------ step0: draw tl/ky/hw btn ------
         try{
-            Imgproc.rectangle(rgbaImg, btntlRect.tl(), btntlRect.br(), RECT_COLOR_RED, btnThickness);
-            Imgproc.rectangle(rgbaImg, btnkyRect.tl(), btnkyRect.br(), RECT_COLOR_BLUE, btnThickness);
-            Imgproc.rectangle(rgbaImg, btnhwRect.tl(), btnhwRect.br(), RECT_COLOR_BLUE, btnThickness);
+            Imgproc.rectangle(rgbaImg, globalVariable.getBtntlRect().tl(), globalVariable.getBtntlRect().br(), util.RECT_COLOR_RED, globalVariable.getBtnThickness());
+            Imgproc.rectangle(rgbaImg, globalVariable.getBtnkyRect().tl(), globalVariable.getBtnkyRect().br(), util.RECT_COLOR_BLUE, globalVariable.getBtnThickness());
+            Imgproc.rectangle(rgbaImg, globalVariable.getBtnhwRect().tl(), globalVariable.getBtnhwRect().br(), util.RECT_COLOR_BLUE, globalVariable.getBtnThickness());
 
-            putTextAtCenter(rgbaImg, btntlRect, "TL", RECT_COLOR_RED, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
-            putTextAtCenter(rgbaImg, btnkyRect, "KY", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
-            putTextAtCenter(rgbaImg, btnhwRect, "HW", RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, btnThickness);
+            putTextAtCenter(rgbaImg, globalVariable.getBtntlRect(), "TL", util.RECT_COLOR_RED, Core.FONT_HERSHEY_DUPLEX, 2.0f, globalVariable.getBtnThickness());
+            putTextAtCenter(rgbaImg, globalVariable.getBtnkyRect(), "KY", util.RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, globalVariable.getBtnThickness());
+            putTextAtCenter(rgbaImg, globalVariable.getBtnhwRect(), "HW", util.RECT_COLOR_BLUE, Core.FONT_HERSHEY_DUPLEX, 2.0f, globalVariable.getBtnThickness());
 
+            //Log.e(util.TAG, "[tl] step0: success!");
         }catch (Exception e){
-            Log.e(TAG,"[tl] step0: draw tl/ky/hw btn. " + e.getMessage());
+            Log.e(util.TAG,"[tl] step0: draw tl/ky/hw btn. " + e.getMessage());
         }
 
         //endregion
@@ -223,19 +173,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         Rect armRect = null;
         armRect = armDetect(rgbaImg);
         if (armRect != null) {
-            Imgproc.rectangle(rgbaImg, new Point(armRect.x, armRect.y), new Point(armRect.x + armRect.width, armRect.y + armRect.height), RECT_COLOR_GREEN, 3);
+            //Imgproc.rectangle(rgbaImg, new Point(armRect.x, armRect.y), new Point(armRect.x + armRect.width, armRect.y + armRect.height), util.RECT_COLOR_GREEN, 3);
             currentArmFlag = true;
-        }
-        //set armFlags
-        if (armFlagls.size() < 3) {
-            armFlagls.add(currentArmFlag);
-        } else {
-            armFlagls.remove(0);
-            armFlagls.add(currentArmFlag);
         }
         //endregion
 
-        //region ------ step2: create the keyboard and timeline & step3: locate the trigger point ------
+        //region ------ step2: create the timeline & step3: locate the trigger point ------
         if(currentArmFlag)
         {
             //get timeline image
@@ -258,7 +201,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 Rect timelineImg_roi = new Rect(x, y, timelineImg.width(), timelineImg.height());
                 Core.addWeighted(rgbaImg.submat(timelineImg_roi), alpha, timelineImg, beta, gamma, rgbaImg.submat(timelineImg_roi));
 
-                Log.i(TAG, "[tl-onCameraFrame]: show timelineImg success!");
+                Log.i(util.TAG, "[tl-onCameraFrame]: show timelineImg success!");
                 //endregion
 
                 //region part2: local the trigger point
@@ -276,7 +219,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 {
                     //draw a "+" on frame
                     Point p = tlTriggerPointArray[i];
-                    Imgproc.circle(rgbaImg, p, 3, RECT_COLOR_RED,-1);
+                    Imgproc.circle(rgbaImg, p, 3, util.RECT_COLOR_RED,-1);
                 }
                 //endregion
             }
@@ -288,7 +231,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         fingertipRect = fingertipDetect(rgbaImg2);
         if(fingertipRect!=null)
         {
-            Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), RECT_COLOR_PURPLE, 5);
+            Imgproc.rectangle(rgbaImg, fingertipRect.tl(), fingertipRect.br(), util.RECT_COLOR_PURPLE, 5);
         }
 
        //Mat dst = new Mat(inputFrame.rgba().size(), CvType.CV_8UC1);
@@ -303,14 +246,21 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //if fingertip exist then do touch detection
         if(fingertipRect!=null)
         {
+            //--
+            Intent testIntent = new Intent();
+            testIntent.setClass(MainActivity.this, HandwriteActivity.class);
+            startActivity(testIntent);
+            finish();
+            //--
+
             //region --- touch btn ---
             Point fingertipCenter = new Point(fingertipRect.tl().x+(fingertipRect.width/2) , fingertipRect.tl().y+(fingertipRect.height/2));
-            if(btnkyRect.contains(fingertipCenter)){
+            if(globalVariable.getBtnkyRect().contains(fingertipCenter)){
                 Intent intent = new Intent();
                 intent.setClass(MainActivity.this, KeyboardActivity.class);
                 startActivity(intent);
                 finish();
-            }else if(btnhwRect.contains(fingertipCenter)){
+            }else if(globalVariable.getBtnhwRect().contains(fingertipCenter)){
                 Intent intent = new Intent();
                 intent.setClass(MainActivity.this, HandwriteActivity.class);
                 startActivity(intent);
@@ -352,7 +302,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
 
-                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: "+ reflag.toString() );
+                            Log.i(util.TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: "+ reflag.toString() );
                         }
                         break;
                     case 1:
@@ -374,7 +324,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
 
-                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
+                            Log.i(util.TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
                     case 2:
@@ -396,7 +346,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
 
-                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
+                            Log.i(util.TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
                     case 3:
@@ -417,7 +367,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             Rect displayimg_roi = new Rect(x, y, displayImg.width(), displayImg.height());
                             Core.addWeighted(rgbaImg.submat(displayimg_roi), alpha, displayImg, beta, gamma, rgbaImg.submat(displayimg_roi));
                             Boolean reflag = saveImage(rgbaImg);
-                            Log.i(TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
+                            Log.i(util.TAG, "[tl-onCameraFrame]: show displayimg success!" + "save a photo: " + reflag.toString());
                         }
                         break;
                 }
@@ -436,9 +386,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         //endregion
 
         frameCounter++; //frameCounter = frameCounter + 1;
-        preFrameCounter++;
-        prePreFrameCounter++;
-        Log.e(TAG, "[tl-onCameraFrame]: frameCounter="+frameCounter+".");
+        Log.e(util.TAG, "[tl-onCameraFrame]: frameCounter="+frameCounter+".");
 
         return rgbaImg;
     }
@@ -462,7 +410,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
 
             // conditions 1:Aspect ratio ( h > 0.5*screenHeight &&  w > 0.75*screenWidth && w/h > 1.5)
-            if(rectBound.height > 0.5*screenHeight && rectBound.width > 0.75*screenWidth && rectBound.width/ rectBound.height > 1.5)
+            GlobalVariable globalValue = ((GlobalVariable)getApplicationContext());
+            if(rectBound.height > 0.5*globalValue.getScreenHeight() && rectBound.width > 0.75*globalValue.getScreenWidth() && rectBound.width/ rectBound.height > 1.5)
             {
                 arm = rectBound;
             }
@@ -481,7 +430,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             //skin detect
             Mat hvsImg = new Mat();
             Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
-            Core.inRange(hvsImg, skinLower, skinUpper, resultImg);
+            Core.inRange(hvsImg, util.skinLower, util.skinUpper, resultImg);
 
             //Perform and decrease noise
             Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
@@ -489,7 +438,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Imgproc.erode(resultImg, resultImg, kernel); //侵蝕
             //Imgproc.GaussianBlur(resultImg, resultImg, new Size(5, 5), 0); //高斯模糊
         }catch (Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }
 
         return  resultImg;
@@ -521,7 +470,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             largestAreaContour.add(contours.get(maxValIdx));
 
         }catch (Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }
 
         return largestAreaContour;
@@ -529,36 +478,21 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
     //endregion
 
-    //region --- get display image ---
-    // get the image that you want to show on the screen.
-    private Mat getDisplayImage(int drawableId,double resize_x, double resize_y)
+    //region --- initial globalvariable ---
+    private void initGlobalVariable()
     {
-        Mat displayImage = new Mat();
-        Mat resizeDisplayImage = new Mat();
-        Size size = new Size(resize_x,resize_y);
+        GlobalVariable globalVariable = ((GlobalVariable)getApplicationContext());
 
-        //get displayImage
-        try{
-            Bitmap bmp = BitmapFactory.decodeResource(getResources(), drawableId);
-            Utils.bitmapToMat(bmp,displayImage);
+        //set screenCenter
+        globalVariable.setScreenWidth(mOpenCvCameraView.getWidth());
+        globalVariable.setScreenHeight(mOpenCvCameraView.getHeight());
+        globalVariable.setScreenCenter();
 
-            Log.i(TAG, "[getDisplayImage]: get display image success!");
-        }catch(Exception e){
-            Log.e(TAG, "[getDisplayImage]: get displayImage ERROR! "+e.getMessage());
-        }
+        globalVariable.setBtntlRect();
+        globalVariable.setBtnkyRect();
+        globalVariable.setBtnhwRect();
 
-        //resize the displayImage
-        try{
-            if(!displayImage.empty())
-            {
-                Imgproc.resize(displayImage,resizeDisplayImage,size);
-                Log.i(TAG, "[getDisplayImage]: resize success!");
-            }
-        }catch (Exception e){
-            Log.e(TAG, "[getDisplayImage]: resize ERROR! "+e.getMessage());
-        }
-
-        return resizeDisplayImage;
+        Log.e(util.TAG,"[tl-initGlobalVariable]: success!");
     }
     //endregion
 
@@ -592,8 +526,8 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         {
             Rect rectBound = Imgproc.boundingRect(largestContour.get(0)); // Get bounding rect of contour
 
-            // conditions 1:Aspect ratio (h,w) range in (100,100) ~ (30,30)
-            if(rectBound.height>30 && rectBound.width>30  && rectBound.height<100 && rectBound.width<100)
+            // conditions 2:Aspect ratio (h,w) range in (100,100) ~ (10,10)
+            if(rectBound.height>10 && rectBound.width>10  && rectBound.height<100 && rectBound.width<100)
             {
                 contour = largestContour;
             }
@@ -610,7 +544,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         try {
             Mat hvsImg = new Mat();
             Imgproc.cvtColor(rgbImage, hvsImg, Imgproc.COLOR_RGB2HSV_FULL);
-            Core.inRange(hvsImg, fingertipLower, fingertipUpper, resultImg);
+            Core.inRange(hvsImg, util.fingertipLower, util.fingertipUpper, resultImg);
 
             Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, new Size(5, 5));
             Imgproc.dilate(resultImg, resultImg, kernel); //膨脹
@@ -618,12 +552,45 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             //Imgproc.GaussianBlur(resultImg, resultImg, new Size(5, 5), 0); //高斯模糊
 
         }catch (Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }
 
         return  resultImg;
     }
 
+    //endregion
+
+    //region --- get display image ---
+    // get the image that you want to show on the screen.
+    private Mat getDisplayImage(int drawableId,double resize_x, double resize_y)
+    {
+        Mat displayImage = new Mat();
+        Mat resizeDisplayImage = new Mat();
+        Size size = new Size(resize_x,resize_y);
+
+        //get displayImage
+        try{
+            Bitmap bmp = BitmapFactory.decodeResource(getResources(), drawableId);
+            Utils.bitmapToMat(bmp,displayImage);
+
+            Log.i(util.TAG, "[getDisplayImage]: get display image success!");
+        }catch(Exception e){
+            Log.e(util.TAG, "[getDisplayImage]: get displayImage ERROR! "+e.getMessage());
+        }
+
+        //resize the displayImage
+        try{
+            if(!displayImage.empty())
+            {
+                Imgproc.resize(displayImage,resizeDisplayImage,size);
+                Log.i(util.TAG, "[getDisplayImage]: resize success!");
+            }
+        }catch (Exception e){
+            Log.e(util.TAG, "[getDisplayImage]: resize ERROR! "+e.getMessage());
+        }
+
+        return resizeDisplayImage;
+    }
     //endregion
 
     //region--- Take a picture ---
@@ -637,7 +604,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             bitmapImage = Bitmap.createBitmap(img.cols(), img.rows(), Bitmap.Config.ARGB_8888);
             Utils.matToBitmap(img, bitmapImage);
         }catch (CvException e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }
 
         //save the bitmap image
@@ -663,12 +630,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
             flag = true;
         }catch (Exception e){
-            Log.e(TAG, e.getMessage());
+            Log.e(util.TAG, e.getMessage());
         }finally {
             try{
                 out.close();
             }catch (Exception e){
-                Log.e(TAG, e.getMessage());
+                Log.e(util.TAG, e.getMessage());
             }
         }
 
@@ -708,7 +675,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Imgproc.putText(img, text, org, fontFace, fontScale, color, thickness);
 
         }catch (Exception e){
-            Log.e(TAG, "[tl-putTextAtCenter]: put text ERROR! "+e.getMessage());
+            Log.e(util.TAG, "[tl-putTextAtCenter]: put text ERROR! "+e.getMessage());
         }
     }
     //endregion
