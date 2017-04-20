@@ -48,9 +48,11 @@ public class KeyboardActivity extends AppCompatActivity implements CameraBridgeV
 
     //counters
     private int frameCounter = 0;
+    private int nonPalmCounter = 0;
 
     //flags
-    private List<Boolean> palmFlags = new ArrayList<Boolean>();
+    //private List<Boolean> palmFlags = new ArrayList<Boolean>();
+    Boolean palmFlag = false;
 
     //endregion
 
@@ -166,38 +168,46 @@ public class KeyboardActivity extends AppCompatActivity implements CameraBridgeV
         //endregion
 
         //region ------ step1: palm detection ------
-        Boolean currentPalmFlag = false;
         MatOfRect palms = detectObjects();
         Rect[] palmsArray = palms.toArray();
-        for (int i = 0; i <palmsArray.length; i++) {
+        /*for (int i = 0; i <palmsArray.length; i++) {
             Imgproc.rectangle(rgbaImg, palmsArray[i].tl(), palmsArray[i].br(), util.RECT_COLOR_RED, 3);
-        }
+        }*/
 
-        //set palmFlags
+        //set palmFlags & nonPalmCounter
         if(palmsArray.length>0){
-            currentPalmFlag = true;
-        }
-        if(palmFlags.size() < 3)
-        {
-            palmFlags.add(currentPalmFlag);
+            palmFlag = true;
+            nonPalmCounter = 0;
         }else{
-            palmFlags.remove(0);
-            palmFlags.add(currentPalmFlag);
+            palmFlag = false;
+            nonPalmCounter++;
         }
 
         //set bgImg
-        if(currentPalmFlag && bgImg==null){
+        if(palmFlag && bgImg==null)
+        {
+            bgImg = inputFrame.rgba().clone();
+        }
+        if(nonPalmCounter>10 && bgImg!=null)
+        {
+            bgImg = null;
+        }
+        if(bgImg != null)
+        {
+            Imgproc.circle(rgbaImg, globalVariable.getScreenCenter(),2, util.RECT_COLOR_BLUE,-1);
+        }
+        /*if(palmFlag && bgImg==null){
             bgImg = inputFrame.rgba().clone();
             Imgproc.putText(rgbaImg,"get gbImg!!", globalVariable.getScreenCenter(), Core.FONT_HERSHEY_SIMPLEX, 2.6f, util.RECT_COLOR_RED,3);
         }
-        if(!currentPalmFlag && bgImg!=null){
+        if(!palmFlag && bgImg!=null){
             bgImg = null;
             Imgproc.putText(rgbaImg,"clear gbImg!!", globalVariable.getScreenCenter(), Core.FONT_HERSHEY_SIMPLEX, 2.6f, util.RECT_COLOR_GREEN,3);
-        }
+        }*/
         //endregion
 
         //region ------ step2: create the keyboard & step3: locate the trigger point ------
-        if(currentPalmFlag)
+        if(palmFlag)
         {
             //get keyboard image
             Mat keyboardImg =  getDisplayImage(R.drawable.numberkeypad2,200,300);

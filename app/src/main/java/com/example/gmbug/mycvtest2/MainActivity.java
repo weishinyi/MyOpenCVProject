@@ -614,7 +614,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         {
             myDir.mkdir();
         }
-        String fname = "photo.jpg";
+        String fname = "photo1.jpg";
         File file = new File(myDir,fname);
         if(file.exists())
         {

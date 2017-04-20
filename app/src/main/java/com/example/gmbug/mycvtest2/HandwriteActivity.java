@@ -1,6 +1,8 @@
 package com.example.gmbug.mycvtest2;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -14,7 +16,9 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
+import org.opencv.core.CvException;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
@@ -24,6 +28,8 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -221,6 +227,20 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
         }
         //endregion
 
+        //region --- get the trajectory figure and recognition ---
+        if(nonCounter==9 & !traceList.isEmpty())
+        {
+            //get the trajectory figure
+            Mat subMat = rgbaImg.submat(handwriteArea).clone();
+            Core.inRange(subMat, util.RECT_COLOR_BLUE, util.RECT_COLOR_BLUE, subMat);
+            Imgproc.threshold(subMat, subMat, 0, 255, Imgproc.THRESH_OTSU);
+            Core.bitwise_not(subMat,subMat);
+            Boolean saveflag = saveImage(subMat);
+
+            Log.e(util.TAG, "[hw]:get the trajectory figure: "+saveflag);
+        }
+
+        //endregion
 
         return rgbaImg;
     }
@@ -328,6 +348,56 @@ public class HandwriteActivity extends AppCompatActivity implements CameraBridge
         return largestAreaContour;
     }
 
+    //endregion
+
+    //region--- Take a picture ---
+    private Boolean saveImage(Mat img)
+    {
+        Boolean flag = false;
+        Bitmap bitmapImage = null;
+
+        //Mat to bitmap
+        try {
+            bitmapImage = Bitmap.createBitmap(img.cols(), img.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(img, bitmapImage);
+        }catch (CvException e){
+            Log.e(util.TAG, e.getMessage());
+        }
+
+        //save the bitmap image
+        String root = Environment.getExternalStorageDirectory().toString();
+        File myDir = new File(root+"/myCvPhotos");
+        if(!myDir.exists())
+        {
+            myDir.mkdir();
+        }
+        String fname = "trajectory_1.jpg";
+        File file = new File(myDir,fname);
+        if(file.exists())
+        {
+            file.delete();
+        }
+
+        FileOutputStream out = null;
+        try{
+            out = new FileOutputStream(file);
+            bitmapImage.compress(Bitmap.CompressFormat.JPEG, 90, out);
+            out.flush();
+            out.close();
+
+            flag = true;
+        }catch (Exception e){
+            Log.e(util.TAG, e.getMessage());
+        }finally {
+            try{
+                out.close();
+            }catch (Exception e){
+                Log.e(util.TAG, e.getMessage());
+            }
+        }
+
+        return flag;
+    }
     //endregion
 
     //endregion
